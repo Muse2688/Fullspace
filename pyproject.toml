@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fullspace"
+version = "0.1.0"
+description = "Fullspace — a 3D capability-manifold agent orchestration framework (a LangGraph superset)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Fullspace" }]
+dependencies = [
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+# Real semantic embeddings (replaces HashEmbedder for production routing)
+embed-st = ["sentence-transformers>=2.2"]
+embed-openai = ["openai>=1.0"]
+# Scale ANN beyond brute-force numpy
+ann-faiss = ["faiss-cpu>=1.7"]
+# Non-linear 3D projection (PCAProjector is the zero-dep fallback)
+proj-umap = ["umap-learn>=0.5"]
+# Bidirectional interop with the LangChain/LangGraph ecosystem
+langgraph = ["langgraph>=0.2", "langchain-core>=0.2"]
+dev = ["pytest>=7", "pytest-asyncio>=0.21", "mypy>=1.10"]
+
+[tool.setuptools.packages.find]
+include = ["fullspace*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+ignore_missing_imports = true
+warn_redundant_casts = true

@@ -1,0 +1,58 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+sdist/
+wheels/
+pip-wheel-metadata/
+MANIFEST
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# --- Tests / type checking / coverage ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.tox/
+
+# --- Fullspace generated artifacts ---
+# SQLite checkpoints from SqliteCheckpointer (runtime state, not source)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+# 3D sphere visualization output from `python -m fullspace.viz`
+fullspace_sphere.html
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- IDE / editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- OS / misc ---
+*.log
+.cache/
