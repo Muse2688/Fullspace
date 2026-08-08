@@ -1,92 +1,188 @@
 # Fullspace
 
+**The capability-manifold agent runtime — route autonomous agents over a high-dimensional capability space instead of hard-wired graphs.**
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-53%20passing-brightgreen.svg)](#run)
+[![CI](https://github.com/Muse2688/Fullspace/actions/workflows/ci.yml/badge.svg)](https://github.com/Muse2688/Fullspace/actions/workflows/ci.yml)
+[![mypy](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](http://mypy-lang.org/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-A **3D capability-manifold** agent orchestration framework — a **superset** replacement for LangGraph.
+> 🌐 **Languages:** [English](README.md) · [简体中文](README.zh-CN.md)
 
-> **The thesis, in two facts:**
-> 1. A graph has no inherent dimension — drawing N nodes on a sphere is the same graph as on a plane. For "3D" to mean anything, geometry must carry semantic meaning.
-> 2. Capability-space routing beats edge-wiring — locate the right capability with one nearest-neighbour query instead of pre-wiring N edges.
->
-> So Fullspace's substrate is a **high-dimensional embedding manifold** (used for routing); the **3D sphere is only its projection** (for human navigation/viz). Routing never uses the projection. See [docs/architecture.md](docs/architecture.md).
+---
 
-## What it does that LangGraph can't
+## Why Fullspace
 
-- **Soft routing** by proximity in capability space (no enumerated node names).
-- **Dynamic materialization** — create a capability on demand when nothing is close enough (LangGraph's compiled graph can't add nodes).
-- **Barrier-free parallelism** — field/wavefront flow policies activate sets per step.
-- **Graceful OOD degradation** — always routes to the nearest capability; no explicit fallback wiring needed.
-- **Bidirectional interop** — a LangGraph subgraph embeds as a Fullspace region; Fullspace exports as a LangGraph node; engines are langchain `Runnable`s.
-- **Persistence & time-travel** — checkpointer (in-memory + SQLite), resume, checkpoint history.
+Mainstream agent frameworks inherit a 60-year-old abstraction: the **graph**. You
+declare nodes, wire edges, and a router evaluates every conditional branch to decide
+where to go next. This works — but it caps what agents can do:
 
-## Install
+- **Topology is frozen at compile time.** You cannot grow the agent at runtime.
+- **Routing is discrete enumeration.** A conditional edge can only return a name you
+  already declared — no interpolation, no graceful degradation.
+- **Every branch costs a routing decision.** Scale to *N* specialists and routing
+  becomes *O(N)* per step.
 
-```bash
-pip install -e .                         # core, zero heavy deps
-pip install -e ".[langgraph,dev]"        # + interop/eval + tests/mypy
-pip install faiss-cpu                    # + sublinear ANN for large manifolds
+Fullspace replaces edge-wiring with **capability-space routing**. Each capability is a
+point in a high-dimensional semantic manifold; "where next" is answered by a single
+nearest-neighbour query, not by traversing a wiring diagram. The 3D *sphere* you
+navigate is just a human-facing projection of that space — **routing never uses the
+projection**, exactly because a graph has no inherent dimension.
+
+> **Thesis:** *capability-space routing beats edge-wiring.* Locating the right
+> capability with one vector query — instead of pre-wiring *N* edges and evaluating a
+> router per branch — is the single substitution from which every Fullspace advantage
+> follows.
+
+## Features
+
+| | Feature | What it means |
+|---|---|---|
+| 🧭 | **Capability-space routing** | Soft routing by semantic proximity — no enumerated node names. |
+| ✨ | **Dynamic materialization** | Spawn a capability on demand when nothing matches (emergent topology). |
+| 🌊 | **Multi-modal execution** | Discrete (graph-equivalent), field diffusion, and wavefront flow policies. |
+| ⚡ | **Barrier-free parallelism** | Activate a neighbourhood per step — no superstep synchronization barrier. |
+| 🛡️ | **Graceful OOD degradation** | Always routes to the nearest capability; no explicit fallback wiring required. |
+| 🔁 | **Bidirectional LangGraph interop** | Embed a LangGraph subgraph as a region; export Fullspace as a LangGraph node; run as a langchain `Runnable`. |
+| 💾 | **Persistence & time-travel** | In-memory + SQLite checkpointers; resume; checkpoint history. |
+| 📈 | **Sublinear scaling** | Drop in FAISS for *O(log N)* routing at manifold scale. |
+| 🔬 | **Deterministic & reproducible** | Seedable, same-input-same-trajectory by construction. |
+
+## How it works
+
+```
+                          capability manifold
+        (high-dimensional embedding; 3D sphere is its projection for navigation)
+
+            ·search        ·calc              ·summarize
+               \             |                   /
+                \            |                  /
+   task ─► embed ─► ANN ─► nearest region ─► run handler
+                /            |                  \
+               /             |                   \
+            ·translate     ·code                ·plan
+
+   ┌──────────────────────────────────────────────────────────────┐
+   │  locate ─► run ─► (state Δ + intent vector) ─► route ─► ...  │
+   │            terminate on  sink / halt / budget                │
+   └──────────────────────────────────────────────────────────────┘
 ```
 
-## Run
+A **flow policy** decides how many capabilities activate per step (discrete → 1;
+field/wavefront → a neighbourhood). The **mixed router** performs one coarse
+nearest-neighbour hop by default, escalating to an LLM disambiguator only at genuinely
+ambiguous junctions, and can **materialize** a new capability on a near-miss. See
+[docs/architecture.md](docs/architecture.md) for the full design.
+
+## Installation
 
 ```bash
-python -m pytest tests/                  # 53 tests
-python -m fullspace.examples.linear_pipeline
-python -m fullspace.examples.branching
-python -m fullspace.examples.react_agent
-python -m fullspace.examples.interrupt_resume
-python -m fullspace.eval                 # dual-track benchmark vs real LangGraph
-python -m fullspace.eval.scaling         # FAISS routing-latency scaling
-python -m fullspace.viz                  # 3D capability sphere -> fullspace_sphere.html
-python -m mypy fullspace                 # type check (0 errors)
+pip install fullspace                                # core, zero heavy deps
+pip install "fullspace[langgraph]"                   # + LangGraph interop & eval
+pip install faiss-cpu                                # + sublinear ANN at scale
+pip install "fullspace[langgraph,dev]"               # + tests, mypy
 ```
 
-## Quick start
+> Fullspace is dependency-light by default: only NumPy is required. FAISS,
+> sentence-transformers, UMAP, and LangGraph are **optional** extras — install the ones
+> you need and Fullspace uses them automatically.
+
+## Quickstart
 
 ```python
 from fullspace import Capability, HashEmbedder, Manifold
 from fullspace.engine import Engine, NodeResult
 
-m = Manifold(HashEmbedder())
-m.register_many([
-    Capability("search",  "search the web for information"),
-    Capability("calc",    "perform arithmetic and math calculations"),
-    Capability("summarize","summarize a long document into key points"),
-    Capability("end",     "final answer output", metadata={"sink": True}),
+manifold = Manifold(HashEmbedder())
+manifold.register_many([
+    Capability("search",    "search the web for information"),
+    Capability("calc",      "perform arithmetic and math calculations"),
+    Capability("summarize", "summarize a long document into key points"),
+    Capability("end",       "final answer output", metadata={"sink": True}),
 ])
 
-eng = Engine(m)
-eng.bind("search",   lambda ctx: NodeResult(updates={"found": "..."}, intent="summarize a long document into key points"))
-eng.bind("summarize",lambda ctx: NodeResult(updates={"summary": "..."}, goto="end"))
-eng.bind("end",      lambda ctx: NodeResult(updates={"answer": "..."}))
+agent = Engine(manifold)
+agent.bind("search",    lambda ctx: NodeResult(updates={"found": "..."},
+                                              intent="summarize a long document into key points"))
+agent.bind("summarize", lambda ctx: NodeResult(updates={"summary": "..."}, goto="end"))
+agent.bind("end",       lambda ctx: NodeResult(updates={"answer": "..."}))
 
-res = eng.run("search the web for information")
-print(res.trajectory, res.state["answer"])
+result = agent.run("search the web for information")
+print(result.trajectory)   # ['search', 'summarize', 'end']
 ```
 
-## Honest benchmark vs LangGraph (`python -m fullspace.eval`)
+Replace `HashEmbedder` with `SentenceTransformersEmbedder` or `OpenAIEmbedder`, and the
+plain handlers with LLM-backed ones, to move from runnable mechanics to production
+semantics.
+
+## Benchmarks (vs. real LangGraph)
+
+Fullspace is benchmarked head-to-head against the installed LangGraph package on
+identical workflows (`python -m fullspace.eval`):
 
 | Axis | Result |
 |---|---|
-| Correctness + node-execution on mirrored patterns (linear/branch/loop/ReAct) | **parity** |
-| Expressiveness (dynamic materialization) | **Fullspace wins** — LangGraph inexpressible |
-| OOD robustness (no explicit fallback wired) | **Fullspace wins** — LangGraph errors |
-| Routing latency at scale (FAISS, `eval.scaling`) | **Fullspace wins** — ~80–123× at N=5k–20k |
-| Barrier-free parallelism (field/wavefront) | **Fullspace wins** |
-| Ecosystem compat | **Fullspace wins** — bidirectional interop + Runnable |
-| Routing overhead on tiny static graphs | LangGraph (its pre-wired edges are free; recovered at scale) |
+| Correctness & node-execution on mirrored patterns (linear / branch / loop / ReAct) | **Parity** |
+| **Expressiveness** — dynamic materialization | **Fullspace** (LangGraph inexpressible) |
+| **OOD robustness** — no fallback wired | **Fullspace** (LangGraph errors) |
+| **Routing latency at scale** — FAISS, `eval.scaling` | **Fullspace** (~80–123× at *N*=5k–20k) |
+| **Barrier-free parallelism** | **Fullspace** |
+| Ecosystem compatibility | **Fullspace** (bidirectional interop + `Runnable`) |
+| Routing overhead on tiny static graphs | LangGraph (pre-wired edges are free; recovered at scale) |
 
-The eval harness is the source of truth — run it before claiming any win.
+The harness is the source of truth — run it before claiming any win. Methodology and
+scaling curves: `python -m fullspace.eval.scaling`.
 
-## Status
+## Examples
 
-All planned phases implemented and tested (53 tests, mypy clean):
-manifold substrate · engine + flow policies (discrete/field/wavefront) · mixed router ·
-state/reducers/checkpointing/time-travel · bidirectional LangGraph interop ·
-dual-track eval + FAISS scaling · 3D sphere viz.
+| Example | Pattern |
+|---|---|
+| [`linear_pipeline`](fullspace/examples/linear_pipeline.py) | `A → B → C` (graph-equivalent) |
+| [`branching`](fullspace/examples/branching.py) | task-dependent soft routing |
+| [`react_agent`](fullspace/examples/react_agent.py) | ReAct loop (think → act → observe) |
+| [`interrupt_resume`](fullspace/examples/interrupt_resume.py) | human-in-the-loop / fault tolerance |
 
-**Deferred** (most meaningful once real LLMs are plugged in): speculative pre-warming,
-neighbour prefix caching. Swap `HashEmbedder` for `SentenceTransformersEmbedder`/`OpenAIEmbedder`
-and bind LLM-backed handlers to go from mechanics to production semantics.
+```bash
+python -m fullspace.examples.react_agent
+python -m fullspace.viz            # interactive 3D capability sphere → fullspace_sphere.html
+```
+
+## Roadmap
+
+- [x] Manifold substrate, ANN index, 3D projection
+- [x] Engine: discrete / field / wavefront flow policies, mixed router
+- [x] State: per-key reducers, checkpointing, resume, time-travel
+- [x] Bidirectional LangGraph interop & langchain `Runnable`
+- [x] Dual-track evaluation harness + FAISS scaling
+- [ ] Speculative pre-warming & neighbour prefix caching *(lands with real-LLM integration)*
+- [ ] Continuous-navigation flow policy
+- [ ] Reference integrations: OpenAI, Anthropic, sentence-transformers
+
+## Contributing
+
+Contributions are welcome. The codebase is fully type-checked (`mypy` clean) and covered
+by 53 tests. Run `pip install -e ".[langgraph,dev]" && pytest -q` before opening a PR.
+
+## Citation
+
+If Fullspace informs your work, please cite it:
+
+```bibtex
+@software{fullspace,
+  title  = {Fullspace: A Capability-Manifold Agent Runtime},
+  author = {Fullspace},
+  year   = {2026},
+  url    = {https://github.com/Muse2688/Fullspace},
+  note   = {Capability-space routing as a successor to graph-based agent orchestration}
+}
+```
+
+Conceptual lineage: graph-structured agent runtimes draw on the **Pregel** bulk-synchronous
+model (Malewicz et al., 2010). Fullspace reframes agent routing as nearest-neighbour
+retrieval over a continuous **capability manifold** — relating to mixture-of-experts and
+dense retrieval — so that topology can emerge at runtime rather than be declared statically.
+
+## License
+
+[MIT](LICENSE) © Fullspace
