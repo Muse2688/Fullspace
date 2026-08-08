@@ -87,3 +87,26 @@ class RunResult:
     terminated_by: str
     final_capability: Optional[str] = None
     step_groups: list[list[str]] = field(default_factory=list)
+
+
+@dataclass
+class StepEvent:
+    """One step of a streaming run (analogous to a LangGraph stream chunk).
+
+    Attributes:
+        step: 1-based step index that just completed.
+        group: capability ids activated this step.
+        updates: the raw state updates emitted by the nodes this step.
+        state: full state snapshot after this step's merge.
+        trajectory: capability ids visited so far, in order.
+        terminated: whether the run stopped after this step.
+        terminated_by: termination reason if ``terminated``, else None.
+    """
+
+    step: int
+    group: list[str]
+    updates: dict[str, Any]
+    state: dict[str, Any]
+    trajectory: list[str]
+    terminated: bool
+    terminated_by: Optional[str] = None

@@ -38,6 +38,8 @@ Fullspace 用**能力空间路由**取代连线。每个能力是高维语义流
 | 🔁 | **双向 LangGraph 互操作** | LangGraph 子图作为区域嵌入；Fullspace 导出为 LangGraph 节点；作为 langchain `Runnable` 运行 |
 | 💾 | **持久化与时间旅行** | 内存 + SQLite 检查点；恢复；检查点历史 |
 | 📈 | **次线性扩展** | 接入 FAISS 获得 *O(log N)* 路由 |
+| 🔄 | **流式与异步** | `stream`/`astream` 逐步产出事件；支持 `async def` 节点（对标 LangGraph stream） |
+| 🚀 | **embedding 缓存** | 缓存重复 intent 的 embedding（循环场景调用数降 20×） |
 | 🔬 | **确定可复现** | 可设种子，同输入同轨迹 |
 
 ## 工作原理
@@ -128,6 +130,7 @@ Fullspace 在相同工作流上与已安装的 LangGraph 直接对比（`python 
 | [`branching`](fullspace/examples/branching.py) | 任务相关的软路由 |
 | [`react_agent`](fullspace/examples/react_agent.py) | ReAct 循环（思考→行动→观察） |
 | [`interrupt_resume`](fullspace/examples/interrupt_resume.py) | 人在回路 / 容错 |
+| [`streaming`](fullspace/examples/streaming.py) | 同步/异步流式（`async def` 处理器） |
 
 ```bash
 python -m fullspace.examples.react_agent
@@ -141,13 +144,15 @@ python -m fullspace.viz            # 交互式 3D 能力球 → fullspace_sphere
 - [x] 状态：每键 reducer、检查点、恢复、时间旅行
 - [x] 双向 LangGraph 互操作与 langchain `Runnable`
 - [x] 双轨评测 harness + FAISS scaling
+- [x] 流式 + 异步（`stream` / `astream` / `ainvoke`，`async def` 节点）
+- [x] 重复 intent 的 embedding 缓存
 - [ ] 投机预热与邻近前缀缓存*（随真实 LLM 集成落地）*
 - [ ] 连续导航流动策略
 - [ ] 参考集成：OpenAI、Anthropic、sentence-transformers
 
 ## 参与贡献
 
-欢迎贡献。代码库全量类型检查（`mypy` 零错误），53 个测试覆盖。提 PR 前请运行
+欢迎贡献。代码库全量类型检查（`mypy` 零错误），68 个测试覆盖。提 PR 前请运行
 `pip install -e ".[langgraph,dev]" && pytest -q`。
 
 ## 引用

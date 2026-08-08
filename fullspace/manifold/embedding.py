@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import re
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 
 import numpy as np
 
@@ -29,6 +30,47 @@ class Embedder(ABC):
     @abstractmethod
     def embed(self, text: str) -> np.ndarray:
         """Return a unit vector of shape (dim,)."""
+
+    def embed_batch(self, texts: list[str]) -> np.ndarray:
+        if not texts:
+            return np.zeros((0, self.dim), dtype=np.float32)
+        return np.vstack([self.embed(t) for t in texts])
+
+
+class CachedEmbedder(Embedder):
+    """Memoizing wrapper around any embedder.
+
+    Every routing hop re-embeds an intent string, and intents recur heavily in
+    loops (e.g. a ReAct cycle's "act" / "observe" intents). With a neural or
+    API-backed embedder each call is a forward pass or network round-trip, so
+    caching repeated texts is a large real-world win. With HashEmbedder the win
+    is smaller but still measurable, and correctness is identical (embedders are
+    pure functions of text).
+
+    Args:
+        inner: the wrapped embedder.
+        maxsize: max cached texts (FIFO eviction).
+    """
+
+    def __init__(self, inner: Embedder, maxsize: int = 4096):
+        self._inner = inner
+        self.dim = inner.dim
+        self._maxsize = maxsize
+        self._cache: "OrderedDict[str, np.ndarray]" = OrderedDict()
+        self.hits = 0
+        self.misses = 0
+
+    def embed(self, text: str) -> np.ndarray:
+        cached = self._cache.get(text)
+        if cached is not None:
+            self.hits += 1
+            return cached
+        self.misses += 1
+        vec = self._inner.embed(text)
+        if len(self._cache) >= self._maxsize:
+            self._cache.popitem(last=False)  # FIFO evict
+        self._cache[text] = vec
+        return vec
 
     def embed_batch(self, texts: list[str]) -> np.ndarray:
         if not texts:

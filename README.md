@@ -47,6 +47,8 @@ projection**, exactly because a graph has no inherent dimension.
 | 🔁 | **Bidirectional LangGraph interop** | Embed a LangGraph subgraph as a region; export Fullspace as a LangGraph node; run as a langchain `Runnable`. |
 | 💾 | **Persistence & time-travel** | In-memory + SQLite checkpointers; resume; checkpoint history. |
 | 📈 | **Sublinear scaling** | Drop in FAISS for *O(log N)* routing at manifold scale. |
+| 🔄 | **Streaming & async** | `stream`/`astream` yield per-step events; `async def` node handlers (LangGraph stream parity). |
+| 🚀 | **Embedding cache** | Memoizes recurring intent embeddings (20× fewer calls in loops). |
 | 🔬 | **Deterministic & reproducible** | Seedable, same-input-same-trajectory by construction. |
 
 ## How it works
@@ -142,6 +144,7 @@ scaling curves: `python -m fullspace.eval.scaling`.
 | [`branching`](fullspace/examples/branching.py) | task-dependent soft routing |
 | [`react_agent`](fullspace/examples/react_agent.py) | ReAct loop (think → act → observe) |
 | [`interrupt_resume`](fullspace/examples/interrupt_resume.py) | human-in-the-loop / fault tolerance |
+| [`streaming`](fullspace/examples/streaming.py) | sync + async streaming (`async def` handlers) |
 
 ```bash
 python -m fullspace.examples.react_agent
@@ -155,6 +158,8 @@ python -m fullspace.viz            # interactive 3D capability sphere → fullsp
 - [x] State: per-key reducers, checkpointing, resume, time-travel
 - [x] Bidirectional LangGraph interop & langchain `Runnable`
 - [x] Dual-track evaluation harness + FAISS scaling
+- [x] Streaming + async (`stream` / `astream` / `ainvoke`, `async def` node handlers)
+- [x] Embedding cache for recurring intents
 - [ ] Speculative pre-warming & neighbour prefix caching *(lands with real-LLM integration)*
 - [ ] Continuous-navigation flow policy
 - [ ] Reference integrations: OpenAI, Anthropic, sentence-transformers
@@ -162,7 +167,7 @@ python -m fullspace.viz            # interactive 3D capability sphere → fullsp
 ## Contributing
 
 Contributions are welcome. The codebase is fully type-checked (`mypy` clean) and covered
-by 53 tests. Run `pip install -e ".[langgraph,dev]" && pytest -q` before opening a PR.
+by 68 tests. Run `pip install -e ".[langgraph,dev]" && pytest -q` before opening a PR.
 
 ## Citation
 

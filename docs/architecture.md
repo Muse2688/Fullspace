@@ -44,9 +44,14 @@ task → embed → ANN locate start
 - **Discrete flow** activates one capability per step (LangGraph-equivalent).
 - **Field flow** activates a neighbourhood per step (barrier-free parallelism).
 - **Wavefront flow** activates a *widening* neighbourhood per step.
+- **Streaming & async**: `run`/`stream` (sync) and `ainvoke`/`astream` (async —
+  `async def` node handlers are awaited) yield a `StepEvent` per step. This is
+  LangGraph `stream`/`astream` parity, and `FullspaceRunnable` exposes the same
+  surface so engines plug into LangChain's streaming/async pipelines.
 - The **mixed router** does one ANN query per hop by default (affinity pruning);
   it calls an LLM disambiguator only when the top-2 candidates are too close to
   call, and can **materialize** a new capability on a near-miss (spawn-on-miss).
+  Recurring intent embeddings are memoized by `CachedEmbedder`.
 
 ## The four latency mechanisms (the axis Fullspace wins at scale)
 

@@ -10,6 +10,7 @@ policy over the manifold.
 
 from fullspace.manifold import (
     AnnIndex,
+    CachedEmbedder,
     Capability,
     Embedder,
     HashEmbedder,
@@ -24,6 +25,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     "AnnIndex",
+    "CachedEmbedder",
     "Capability",
     "Embedder",
     "HashEmbedder",

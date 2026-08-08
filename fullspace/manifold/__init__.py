@@ -9,7 +9,7 @@
 """
 
 from fullspace.manifold.distance import affinity, cosine, cosine_to_all, normalize, top_k
-from fullspace.manifold.embedding import Embedder, HashEmbedder
+from fullspace.manifold.embedding import CachedEmbedder, Embedder, HashEmbedder
 from fullspace.manifold.index import AnnIndex, NumpyAnnIndex
 from fullspace.manifold.manifold import Manifold
 from fullspace.manifold.projection import PCAProjector, Projector
@@ -20,6 +20,7 @@ __all__ = [
     "Hit",
     "Embedder",
     "HashEmbedder",
+    "CachedEmbedder",
     "affinity",
     "cosine",
     "cosine_to_all",

@@ -1,14 +1,18 @@
 """The runtime — the closed loop that executes capabilities on the manifold.
 
-Phase 4: a step may activate multiple capabilities (field diffusion).
-Phase 2: per-key reducers + checkpointer-backed persistence, resume, and
-time-travel. A checkpoint is written after every step when a ``thread_id`` and
-``checkpointer`` are supplied.
+Execution models:
+* ``run``    / ``stream``    — synchronous; ``stream`` yields a ``StepEvent`` per step.
+* ``ainvoke``/ ``astream``   — asynchronous; node handlers may be ``async def``
+  (e.g. async LLM calls). ``astream`` yields ``StepEvent`` per step.
+
+A checkpoint is written after every step when a ``thread_id`` and ``checkpointer``
+are supplied, so streaming, async, and persistence compose freely.
 """
 
 from __future__ import annotations
 
-from typing import Any, Optional
+import inspect
+from typing import Any, AsyncIterator, Iterator, Optional
 
 import numpy as np
 
@@ -20,6 +24,7 @@ from fullspace.engine.types import (
     NodeHandler,
     NodeResult,
     RunResult,
+    StepEvent,
     coerce_result,
 )
 from fullspace.manifold.manifold import Manifold
@@ -33,14 +38,13 @@ class Engine:
 
     Args:
         manifold: the capability manifold (positions + ANN index).
-        flow: flow policy (default discrete; use ``FieldFlow`` for parallelism).
+        flow: flow policy (default discrete; use ``FieldFlow``/``WavefrontFlow``).
         router: the mixed router (default coarse ANN, no LLM).
         terminator: termination logic.
-        handlers: optional mapping of capability id -> handler.
+        handlers: optional mapping of capability id -> handler (sync or async).
         max_steps: override the terminator's step budget.
         state_spec: per-key reducers for state merging (default overwrite).
-        checkpointer: enables persistence/resume/time-travel when a thread_id is
-            passed to ``run``.
+        checkpointer: enables persistence/resume/time-travel with a thread_id.
     """
 
     def __init__(
@@ -74,7 +78,7 @@ class Engine:
         self.handlers.update(handlers)
         return self
 
-    # -- public execution ---------------------------------------------------
+    # -- synchronous execution ----------------------------------------------
 
     def run(
         self,
@@ -83,44 +87,124 @@ class Engine:
         thread_id: Optional[str] = None,
         max_steps: Optional[int] = None,
     ) -> RunResult:
-        """Run ``task`` from scratch (or from the given seed ``state``)."""
+        """Run ``task`` to completion synchronously and return the final result."""
         state = dict(state or {})
         trajectory: list[str] = []
         step_groups: list[list[str]] = []
-
         if len(self.manifold) == 0:
             return self._finish("empty", state, trajectory, step_groups, 0, None, thread_id)
-
-        self.flow.reset()  # reset per-run state (e.g. wavefront step counter)
+        self.flow.reset()
         active = self.flow.select(self.manifold, task)
         if not active:
             return self._finish("empty", state, trajectory, step_groups, 0, None, thread_id)
-
         budget = max_steps if max_steps is not None else self.terminator.max_steps
-        return self._execute(task, state, trajectory, step_groups, 0, active, thread_id, budget)
+        return self._collect_sync(
+            self._steps_sync(task, state, trajectory, step_groups, 0, active, thread_id, budget),
+            step_groups,
+        )
 
-    def resume(
+    def stream(
         self,
-        thread_id: str,
         task: str,
+        state: Optional[dict[str, Any]] = None,
+        thread_id: Optional[str] = None,
+        max_steps: Optional[int] = None,
+    ) -> Iterator[StepEvent]:
+        """Yield a ``StepEvent`` after each step (synchronous streaming)."""
+        state = dict(state or {})
+        trajectory: list[str] = []
+        step_groups: list[list[str]] = []
+        if len(self.manifold) == 0:
+            yield StepEvent(0, [], {}, state, [], True, "empty")
+            return
+        self.flow.reset()
+        active = self.flow.select(self.manifold, task)
+        if not active:
+            yield StepEvent(0, [], {}, state, [], True, "empty")
+            return
+        budget = max_steps if max_steps is not None else self.terminator.max_steps
+        yield from self._steps_sync(task, state, trajectory, step_groups, 0, active, thread_id, budget)
+
+    # -- asynchronous execution --------------------------------------------
+
+    async def ainvoke(
+        self,
+        task: str,
+        state: Optional[dict[str, Any]] = None,
+        thread_id: Optional[str] = None,
         max_steps: Optional[int] = None,
     ) -> RunResult:
-        """Continue a thread from its latest checkpoint, routing from ``task``."""
+        """Async run to completion; node handlers may be ``async def``."""
+        last: Optional[StepEvent] = None
+        step_groups: list[list[str]] = []
+        async for ev in self.astream(task, state=state, thread_id=thread_id, max_steps=max_steps):
+            last = ev
+        if last is None:
+            return RunResult(dict(state or {}), [], 0, "empty", None, step_groups)
+        final_id = last.trajectory[-1] if last.trajectory else None
+        reason = last.terminated_by or "unknown"
+        return RunResult(last.state, last.trajectory, last.step, reason, final_id, step_groups)
+
+    async def astream(
+        self,
+        task: str,
+        state: Optional[dict[str, Any]] = None,
+        thread_id: Optional[str] = None,
+        max_steps: Optional[int] = None,
+    ) -> AsyncIterator[StepEvent]:
+        """Async streaming; yields a ``StepEvent`` per step. Awaits async handlers."""
+        state = dict(state or {})
+        trajectory: list[str] = []
+        step_groups: list[list[str]] = []
+        if len(self.manifold) == 0:
+            yield StepEvent(0, [], {}, state, [], True, "empty")
+            return
+        self.flow.reset()
+        active = self.flow.select(self.manifold, task)
+        if not active:
+            yield StepEvent(0, [], {}, state, [], True, "empty")
+            return
+        budget = max_steps if max_steps is not None else self.terminator.max_steps
+        async for ev in self._steps_async(task, state, trajectory, step_groups, 0, active, thread_id, budget):
+            yield ev
+
+    # -- resume (sync + async) ---------------------------------------------
+
+    def resume(self, thread_id: str, task: str, max_steps: Optional[int] = None) -> RunResult:
         if self.checkpointer is None:
             raise ValueError("resume requires a checkpointer")
         cp = self.checkpointer.get(thread_id)
         if cp is None:
             raise KeyError(f"no checkpoint for thread {thread_id!r}")
-        state = dict(cp.state)
-        trajectory = list(cp.trajectory)
-        step_groups = [list(g) for g in cp.step_groups]
-        step = cp.step
+        state, trajectory, step_groups, step = self._restore(cp)
         budget = max_steps if max_steps is not None else self.terminator.max_steps
         self.flow.reset()
         active = self.flow.select(self.manifold, task)
         if not active:
-            return self._finish("empty", state, trajectory, step_groups, step, None, thread_id)
-        return self._execute(task, state, trajectory, step_groups, step, active, thread_id, budget)
+            return RunResult(state, trajectory, step, "empty", None, step_groups)
+        return self._collect_sync(
+            self._steps_sync(task, state, trajectory, step_groups, step, active, thread_id, budget),
+            step_groups,
+        )
+
+    async def aresume(self, thread_id: str, task: str, max_steps: Optional[int] = None) -> RunResult:
+        if self.checkpointer is None:
+            raise ValueError("aresume requires a checkpointer")
+        cp = self.checkpointer.get(thread_id)
+        if cp is None:
+            raise KeyError(f"no checkpoint for thread {thread_id!r}")
+        state, trajectory, step_groups, step = self._restore(cp)
+        budget = max_steps if max_steps is not None else self.terminator.max_steps
+        self.flow.reset()
+        active = self.flow.select(self.manifold, task)
+        last: Optional[StepEvent] = None
+        if active:
+            async for ev in self._steps_async(task, state, trajectory, step_groups, step, active, thread_id, budget):
+                last = ev
+        final_id = last.trajectory[-1] if (last and last.trajectory) else None
+        reason = (last.terminated_by or "unknown") if last is not None else "empty"
+        steps = last.step if last is not None else step
+        return RunResult(state, trajectory, steps, reason, final_id, step_groups)
 
     # -- time-travel inspection --------------------------------------------
 
@@ -134,74 +218,147 @@ class Engine:
             return None
         return self.checkpointer.get(thread_id, checkpoint_id)
 
-    # -- the loop -----------------------------------------------------------
+    # -- the synchronous step loop (generator) ------------------------------
 
-    def _execute(
-        self,
-        task: str,
-        state: dict,
-        trajectory: list[str],
-        step_groups: list[list[str]],
-        step: int,
-        active: list[Hit],
-        thread_id: Optional[str],
-        budget: int,
-    ) -> RunResult:
+    def _steps_sync(
+        self, task, state, trajectory, step_groups, step, active, thread_id, budget
+    ) -> Iterator[StepEvent]:
         while active:
             group = [h.capability.id for h in active]
             step_groups.append(group)
             trajectory.extend(group)
-
-            intents: list[tuple[Any, float]] = []
-            gotos: list[str] = []
-            halted = False
-            sink_hit = False
-            last_id = active[-1].capability.id
+            step_updates, intents, gotos, halted, sink_hit, last_id = self._prep(active)
 
             for h in active:
                 cap = h.capability
                 handler = self.handlers.get(cap.id)
                 if handler is None:
-                    return self._finish("no_handler", state, trajectory, step_groups, step, cap.id, thread_id)
+                    yield self._end_step(state, trajectory, step_groups, step, group, step_updates,
+                                         thread_id, "no_handler", last_id)
+                    return
                 ctx = NodeContext(state=state, trajectory=list(trajectory), step=step, task=task)
-                result: NodeResult = coerce_result(handler(ctx))
-                merge_updates(state, result.updates, self.state_spec)
-                if result.halt:
-                    halted = True
-                if cap.is_sink:
-                    sink_hit = True
+                result = coerce_result(handler(ctx))
+                self._absorb(state, result, step_updates)
+                halted |= result.halt
+                sink_hit |= cap.is_sink
                 if result.goto:
                     gotos.append(result.goto)
                 if result.intent is not None:
                     intents.append((result.intent, h.score))
 
             step += 1
+            active = self._after_step(
+                state, trajectory, step_groups, step, group, step_updates, thread_id,
+                budget, halted, sink_hit, gotos, intents,
+            )
+            if isinstance(active, str):  # termination reason
+                yield self._end_step(state, trajectory, step_groups, step, group, step_updates, thread_id, active, last_id)
+                return
+            if active is None:  # mid-step termination already yielded inside _after_step? no
+                return
+            yield StepEvent(step, list(group), dict(step_updates), dict(state), list(trajectory), False, None)
 
-            # Decide termination, then persist this step's checkpoint.
-            reason = self._terminate_reason(step, budget, halted, sink_hit)
-            if reason is None and not gotos and not intents:
-                reason = "no_intent"
-            if reason is not None:
-                return self._finish(reason, state, trajectory, step_groups, step, last_id, thread_id)
+    # -- the asynchronous step loop (async generator) -----------------------
 
-            # Persist a mid-run checkpoint (continuing).
-            self._put_checkpoint(thread_id, step, state, trajectory, step_groups, None)
+    async def _steps_async(
+        self, task, state, trajectory, step_groups, step, active, thread_id, budget
+    ) -> AsyncIterator[StepEvent]:
+        while active:
+            group = [h.capability.id for h in active]
+            step_groups.append(group)
+            trajectory.extend(group)
+            step_updates, intents, gotos, halted, sink_hit, last_id = self._prep(active)
 
-            # Advance to the next step.
-            if gotos:
-                nxt = self.manifold.get(gotos[0])
-                if nxt is None:
-                    return self._finish("bad_goto", state, trajectory, step_groups, step, last_id, thread_id)
-                active = [Hit(nxt, 1.0)]
-            else:
-                nxt_active = self._route_next(intents)
-                if nxt_active is None:
-                    return self._finish("no_route", state, trajectory, step_groups, step, last_id, thread_id)
-                active = nxt_active
+            for h in active:
+                cap = h.capability
+                handler = self.handlers.get(cap.id)
+                if handler is None:
+                    yield self._end_step(state, trajectory, step_groups, step, group, step_updates,
+                                         thread_id, "no_handler", last_id)
+                    return
+                ctx = NodeContext(state=state, trajectory=list(trajectory), step=step, task=task)
+                result = await self._invoke_handler_async(handler, ctx)
+                self._absorb(state, result, step_updates)
+                halted |= result.halt
+                sink_hit |= cap.is_sink
+                if result.goto:
+                    gotos.append(result.goto)
+                if result.intent is not None:
+                    intents.append((result.intent, h.score))
 
-        return self._finish("no_route", state, trajectory, step_groups, step, None, thread_id)
+            step += 1
+            nxt = self._after_step(
+                state, trajectory, step_groups, step, group, step_updates, thread_id,
+                budget, halted, sink_hit, gotos, intents,
+            )
+            if isinstance(nxt, str):
+                yield self._end_step(state, trajectory, step_groups, step, group, step_updates, thread_id, nxt, last_id)
+                return
+            if nxt is None:
+                return
+            active = nxt
+            yield StepEvent(step, list(group), dict(step_updates), dict(state), list(trajectory), False, None)
 
-    # -- helpers ------------------------------------------------------------
+    # -- shared step helpers ------------------------------------------------
+
+    def _prep(self, active):
+        step_updates: dict[str, Any] = {}
+        intents: list[tuple[Any, float]] = []
+        gotos: list[str] = []
+        halted = False
+        sink_hit = False
+        last_id = active[-1].capability.id
+        return step_updates, intents, gotos, halted, sink_hit, last_id
+
+    def _absorb(self, state, result: NodeResult, step_updates: dict) -> None:
+        merge_updates(state, result.updates, self.state_spec)
+        step_updates.update(result.updates)
+
+    def _after_step(
+        self, state, trajectory, step_groups, step, group, step_updates, thread_id,
+        budget, halted, sink_hit, gotos, intents
+    ):
+        """Return the next active list, or a termination-reason string.
+
+        Writes the mid-run (continuing) checkpoint only; termination checkpoints
+        are written by ``_end_step`` so every termination path is persisted.
+        """
+        reason = self._terminate_reason(step, budget, halted, sink_hit)
+        if reason is None and not gotos and not intents:
+            reason = "no_intent"
+        if reason is not None:
+            return reason
+        self._put_checkpoint(thread_id, step, state, trajectory, step_groups, None)
+        if gotos:
+            nxt = self.manifold.get(gotos[0])
+            return "bad_goto" if nxt is None else [Hit(nxt, 1.0)]
+        nxt_active = self._route_next(intents)
+        return "no_route" if nxt_active is None else nxt_active
+
+    def _end_step(self, state, trajectory, step_groups, step, group, step_updates, thread_id, reason, last_id) -> StepEvent:
+        self._put_checkpoint(thread_id, step, state, trajectory, step_groups, reason)
+        return StepEvent(step, list(group), dict(step_updates), dict(state), list(trajectory), True, reason)
+
+    def _collect_sync(self, gen: Iterator[StepEvent], step_groups: list[list[str]]) -> RunResult:
+        last: Optional[StepEvent] = None
+        for ev in gen:
+            last = ev
+        if last is None:
+            return RunResult({}, [], 0, "empty", None, step_groups)
+        final_id = last.trajectory[-1] if last.trajectory else None
+        reason = last.terminated_by or "unknown"
+        return RunResult(last.state, last.trajectory, last.step, reason, final_id, step_groups)
+
+    async def _invoke_handler_async(self, handler: NodeHandler, ctx: NodeContext) -> NodeResult:
+        res = handler(ctx)
+        if inspect.isawaitable(res):
+            res = await res
+        return coerce_result(res)
+
+    def _restore(self, cp: Checkpoint):
+        return dict(cp.state), list(cp.trajectory), [list(g) for g in cp.step_groups], cp.step
+
+    # -- termination / persistence / routing -------------------------------
 
     def _terminate_reason(self, step: int, budget: int, halted: bool, sink_hit: bool) -> Optional[str]:
         if step >= budget:
@@ -212,9 +369,7 @@ class Engine:
             return "sink"
         return None
 
-    def _finish(
-        self, reason, state, trajectory, step_groups, step, last_id, thread_id
-    ) -> RunResult:
+    def _finish(self, reason, state, trajectory, step_groups, step, last_id, thread_id) -> RunResult:
         self._put_checkpoint(thread_id, step, state, trajectory, step_groups, reason)
         return RunResult(state, trajectory, step, reason, last_id, step_groups)
 
@@ -234,15 +389,13 @@ class Engine:
         )
         self.checkpointer.put(cp)
 
-    def _route_next(self, intents: list[tuple[Any, float]]) -> Optional[list[Hit]]:
-        """Turn the previous step's intents into the next activated set."""
+    def _route_next(self, intents: list[tuple[Any, float]]):
         if isinstance(self.flow, DiscreteFlow):
             intent = max(intents, key=lambda x: x[1])[0]
             decision = self.router.route(intent)
             if decision.capability is None:
                 return None
             return [Hit(decision.capability, decision.score)]
-
         query_vec = self._combine_intents(intents)
         hits = self.flow.select(self.manifold, query_vec)
         if hits:
@@ -254,7 +407,6 @@ class Engine:
         return None
 
     def _combine_intents(self, intents: list[tuple[Any, float]]) -> np.ndarray:
-        """Score-weighted average of intent vectors — the field's direction."""
         vecs = np.vstack([self.manifold._as_vector(it) for it, _ in intents])
         weights = np.array([max(w, 1e-6) for _, w in intents], dtype=np.float32)
         weights /= weights.sum()

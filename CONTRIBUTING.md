@@ -14,7 +14,8 @@ pip install faiss-cpu               # for the FAISS ANN tests
 
 ## Before you open a pull request
 
-The project keeps two gates green — please run both:
+The project keeps two gates green — please run both (`asyncio_mode = auto` is set, so
+async tests run without markers):
 
 ```bash
 python -m pytest tests/ -q      # all tests must pass
