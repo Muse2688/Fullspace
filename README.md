@@ -79,11 +79,21 @@ ambiguous junctions, and can **materialize** a new capability on a near-miss. Se
 
 ## Installation
 
+> `fullspace` is **not yet on PyPI** (the name is available — publishing is planned).
+> Install from GitHub for now:
+
 ```bash
-pip install fullspace                                # core, zero heavy deps
-pip install "fullspace[langgraph]"                   # + LangGraph interop & eval
-pip install faiss-cpu                                # + sublinear ANN at scale
-pip install "fullspace[langgraph,dev]"               # + tests, mypy
+# core (zero heavy deps)
+pip install git+https://github.com/Muse2688/Fullspace.git
+pip install faiss-cpu                       # + sublinear ANN at scale
+```
+
+With extras (LangGraph interop/eval, tests, mypy), clone and install editable:
+
+```bash
+git clone https://github.com/Muse2688/Fullspace.git
+cd Fullspace
+pip install -e ".[langgraph,dev]"
 ```
 
 > Fullspace is dependency-light by default: only NumPy is required. FAISS,
