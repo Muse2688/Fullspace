@@ -75,7 +75,7 @@ def make_styles() -> dict:
     s = {}
     s["body"] = ParagraphStyle("body", fontName="YaHei", fontSize=10.5, leading=17,
                                textColor=C_INK, firstLineIndent=21, alignment=TA_JUSTIFY,
-                               spaceAfter=4)
+                               spaceAfter=4, wordWrap="CJK")
     s["body_noindent"] = ParagraphStyle("body_noindent", parent=s["body"], firstLineIndent=0)
     s["lead"] = ParagraphStyle("lead", parent=s["body"], fontSize=11, leading=19,
                                textColor=C_MUTED, firstLineIndent=0, spaceAfter=6)
@@ -98,8 +98,10 @@ def make_styles() -> dict:
     s["callout_title"] = ParagraphStyle("callout_title", fontName="YaHei-Bold", fontSize=10,
                                         leading=14, textColor=C_INK, spaceAfter=2)
     s["callout_body"] = ParagraphStyle("callout_body", fontName="YaHei", fontSize=10, leading=15.5,
-                                       textColor=C_INK, firstLineIndent=0, spaceAfter=0)
-    s["tbl"] = ParagraphStyle("tbl", fontName="YaHei", fontSize=9.3, leading=13)
+                                       textColor=C_INK, firstLineIndent=0, spaceAfter=0,
+                                       wordWrap="CJK")
+    s["tbl"] = ParagraphStyle("tbl", fontName="YaHei", fontSize=9.3, leading=13,
+                              wordWrap="CJK")
     s["tbl_head"] = ParagraphStyle("tbl_head", fontName="YaHei-Bold", fontSize=9.5,
                                    leading=13, textColor=colors.white)
     s["toc_l1"] = ParagraphStyle("toc_l1", fontName="YaHei-Bold", fontSize=11, leading=20,
@@ -284,9 +286,10 @@ def block_to_flowables(block, styles, chap_no, counter, content_width):
     if t == "lead":
         return [Paragraph(p, styles["lead"])]
     if t == "h2":
-        return [Paragraph(p, styles["h2"])]
+        # 孤行标题治理：剩余空间不足“标题+几行正文”则提前分页，让标题落到下一页顶部
+        return [CondPageBreak(60), Paragraph(p, styles["h2"])]
     if t == "h3":
-        return [Paragraph(p, styles["h3"])]
+        return [CondPageBreak(44), Paragraph(p, styles["h3"])]
     if t == "spacer":
         return [Spacer(1, float(p or 6))]
     if t == "code":
@@ -371,30 +374,31 @@ def render_pdf(doc_ir: dict, out_path: str) -> str:
 
 def _cover_flowables(doc_ir, styles, PAGE):
     pw, ph = PAGE
-    s_book = ParagraphStyle("s_book", fontName="Hei", fontSize=38, leading=48,
+    s_book = ParagraphStyle("s_book", fontName="Hei", fontSize=40, leading=50,
                             textColor=C_INK, alignment=TA_CENTER)
-    s_book2 = ParagraphStyle("s_book2", fontName="YaHei-Bold", fontSize=30, leading=40,
+    s_book2 = ParagraphStyle("s_book2", fontName="YaHei-Bold", fontSize=26, leading=36,
                              textColor=C_NAVY, alignment=TA_CENTER)
+    s_author = ParagraphStyle("s_author", fontName="YaHei-Bold", fontSize=17, leading=26,
+                              textColor=C_INK, alignment=TA_CENTER)
     s_sub = ParagraphStyle("s_sub", fontName="YaHei", fontSize=13.5, leading=22,
                            textColor=C_MUTED, alignment=TA_CENTER)
     s_meta = ParagraphStyle("s_meta", fontName="YaHei", fontSize=10, leading=16,
                             textColor=C_MUTED, alignment=TA_CENTER)
     cover = [
         NextPageTemplate("cover"),
-        Spacer(1, 42 * mm),
-        Paragraph(doc_ir.get("series", "图灵实战系列"), s_meta),
-        Spacer(1, 30 * mm),
+        Spacer(1, 50 * mm),
         Paragraph(doc_ir["title"], s_book),
         Spacer(1, 4 * mm),
         Paragraph(doc_ir.get("title_en", ""), s_book2),
-        Spacer(1, 14 * mm),
+        Spacer(1, 20 * mm),
         HRFlowable(width=60 * mm, thickness=1.2, color=C_NAVY, hAlign="CENTER"),
-        Spacer(1, 12 * mm),
+        Spacer(1, 10 * mm),
+        Paragraph(doc_ir.get("author_line", ""), s_author),
+        Spacer(1, 16 * mm),
         Paragraph(doc_ir.get("subtitle", ""), s_sub),
         Spacer(1, 6 * mm),
         Paragraph(doc_ir.get("tagline", ""), s_sub),
-        Spacer(1, 50 * mm),
-        Paragraph(doc_ir.get("author_line", ""), s_meta),
+        Spacer(1, 58 * mm),
         Paragraph(doc_ir.get("edition_line", ""), s_meta),
         PageBreak(),
     ]
