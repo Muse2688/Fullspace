@@ -146,6 +146,14 @@ python -m fullspace.examples.react_agent
 python -m fullspace.viz            # 交互式 3D 能力球 → fullspace_sphere.html
 ```
 
+## 对比 Demo
+
+仓库附带一个 K12 教育对比 demo（[`demos/k12-education/`](demos/k12-education/)）：用同一套 8 个教学
+agent，分别用 **LangGraph**、**Fullspace**、**Fullspace 混合路由版**实现，跑 200 个随机负载的多维对比
+测试（功能一致性、路由开销、延迟、规模 scaling、OOD、变更实验），产出交互式 HTML 报告。实测表明，
+混合路由版（线性 goto + 分支 intent + 决策缓存）能在路由开销上追平 LangGraph，同时保留运行时扩展
+能力。详见该目录的 README。
+
 ## 路线图
 
 - [x] 流形基底、ANN 索引、3D 投影

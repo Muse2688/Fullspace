@@ -1,0 +1,496 @@
+{
+  "cases": [
+    {
+      "name": "s1_advanced",
+      "subject": "math",
+      "proficiency": 95,
+      "trajectory": [
+        "diagnose",
+        "plan",
+        "teach",
+        "quiz",
+        "grade",
+        "report"
+      ],
+      "fs_trajectory": [
+        "diagnose",
+        "plan",
+        "teach",
+        "quiz",
+        "grade",
+        "report"
+      ],
+      "trajectory_match": true,
+      "report_match": true,
+      "success": true,
+      "terminated_by": "sink",
+      "lg": {
+        "steps": 6,
+        "node_calls": 6,
+        "route_calls": 1,
+        "elapsed_ms_median": 1.8931000013253652,
+        "elapsed_ms_p95": 1.9952000002376735
+      },
+      "fs": {
+        "steps": 6,
+        "node_calls": 6,
+        "route_calls": 5,
+        "elapsed_ms_median": 0.20489999587880448,
+        "elapsed_ms_p95": 0.22460000036517158
+      },
+      "fs_hybrid": {
+        "steps": 6,
+        "node_calls": 6,
+        "route_calls": 2,
+        "ann_calls": 2,
+        "cache_hits": 0,
+        "elapsed_ms_median": 0.11139999696752056,
+        "elapsed_ms_p95": 0.11719999747583643
+      },
+      "verdict": {
+        "correctness": "tie",
+        "exec": "tie",
+        "route": "LG",
+        "latency": "FS"
+      }
+    },
+    {
+      "name": "s2_average",
+      "subject": "math",
+      "proficiency": 55,
+      "trajectory": [
+        "diagnose",
+        "plan",
+        "teach",
+        "quiz",
+        "grade",
+        "report"
+      ],
+      "fs_trajectory": [
+        "diagnose",
+        "plan",
+        "teach",
+        "quiz",
+        "grade",
+        "report"
+      ],
+      "trajectory_match": true,
+      "report_match": true,
+      "success": true,
+      "terminated_by": "sink",
+      "lg": {
+        "steps": 6,
+        "node_calls": 6,
+        "route_calls": 1,
+        "elapsed_ms_median": 1.964299997780472,
+        "elapsed_ms_p95": 2.0259000011719763
+      },
+      "fs": {
+        "steps": 6,
+        "node_calls": 6,
+        "route_calls": 5,
+        "elapsed_ms_median": 0.22109999554231763,
+        "elapsed_ms_p95": 0.22499999613501132
+      },
+      "fs_hybrid": {
+        "steps": 6,
+        "node_calls": 6,
+        "route_calls": 2,
+        "ann_calls": 2,
+        "cache_hits": 0,
+        "elapsed_ms_median": 0.11510000331327319,
+        "elapsed_ms_p95": 0.12479999713832512
+      },
+      "verdict": {
+        "correctness": "tie",
+        "exec": "tie",
+        "route": "LG",
+        "latency": "FS"
+      }
+    },
+    {
+      "name": "s3_struggling",
+      "subject": "math",
+      "proficiency": 30,
+      "trajectory": [
+        "diagnose",
+        "plan",
+        "teach",
+        "quiz",
+        "grade",
+        "analyze",
+        "answer",
+        "teach",
+        "quiz",
+        "grade",
+        "analyze",
+        "answer",
+        "report"
+      ],
+      "fs_trajectory": [
+        "diagnose",
+        "plan",
+        "teach",
+        "quiz",
+        "grade",
+        "analyze",
+        "answer",
+        "teach",
+        "quiz",
+        "grade",
+        "analyze",
+        "answer",
+        "report"
+      ],
+      "trajectory_match": true,
+      "report_match": true,
+      "success": true,
+      "terminated_by": "sink",
+      "lg": {
+        "steps": 13,
+        "node_calls": 13,
+        "route_calls": 4,
+        "elapsed_ms_median": 3.5656000036397018,
+        "elapsed_ms_p95": 4.038400002173148
+      },
+      "fs": {
+        "steps": 13,
+        "node_calls": 13,
+        "route_calls": 9,
+        "elapsed_ms_median": 0.36610000097425655,
+        "elapsed_ms_p95": 0.38079999649198726
+      },
+      "fs_hybrid": {
+        "steps": 13,
+        "node_calls": 13,
+        "route_calls": 5,
+        "ann_calls": 4,
+        "cache_hits": 1,
+        "elapsed_ms_median": 0.2418000003672205,
+        "elapsed_ms_p95": 0.2613000033306889
+      },
+      "verdict": {
+        "correctness": "tie",
+        "exec": "tie",
+        "route": "LG",
+        "latency": "FS"
+      }
+    },
+    {
+      "name": "s4_english",
+      "subject": "english",
+      "proficiency": 45,
+      "trajectory": [
+        "diagnose",
+        "plan",
+        "teach",
+        "quiz",
+        "grade",
+        "analyze",
+        "answer",
+        "teach",
+        "quiz",
+        "grade",
+        "analyze",
+        "answer",
+        "report"
+      ],
+      "fs_trajectory": [
+        "diagnose",
+        "plan",
+        "teach",
+        "quiz",
+        "grade",
+        "analyze",
+        "answer",
+        "teach",
+        "quiz",
+        "grade",
+        "analyze",
+        "answer",
+        "report"
+      ],
+      "trajectory_match": true,
+      "report_match": true,
+      "success": true,
+      "terminated_by": "sink",
+      "lg": {
+        "steps": 13,
+        "node_calls": 13,
+        "route_calls": 4,
+        "elapsed_ms_median": 3.5682000016095117,
+        "elapsed_ms_p95": 3.916000001481734
+      },
+      "fs": {
+        "steps": 13,
+        "node_calls": 13,
+        "route_calls": 9,
+        "elapsed_ms_median": 0.3584000005503185,
+        "elapsed_ms_p95": 0.37149999843677506
+      },
+      "fs_hybrid": {
+        "steps": 13,
+        "node_calls": 13,
+        "route_calls": 5,
+        "ann_calls": 4,
+        "cache_hits": 1,
+        "elapsed_ms_median": 0.23860000510467216,
+        "elapsed_ms_p95": 0.25099999766098335
+      },
+      "verdict": {
+        "correctness": "tie",
+        "exec": "tie",
+        "route": "LG",
+        "latency": "FS"
+      }
+    },
+    {
+      "name": "s5_beginner",
+      "subject": "math",
+      "proficiency": 15,
+      "trajectory": [
+        "diagnose",
+        "plan",
+        "teach",
+        "quiz",
+        "grade",
+        "analyze",
+        "answer",
+        "teach",
+        "quiz",
+        "grade",
+        "analyze",
+        "answer",
+        "report"
+      ],
+      "fs_trajectory": [
+        "diagnose",
+        "plan",
+        "teach",
+        "quiz",
+        "grade",
+        "analyze",
+        "answer",
+        "teach",
+        "quiz",
+        "grade",
+        "analyze",
+        "answer",
+        "report"
+      ],
+      "trajectory_match": true,
+      "report_match": true,
+      "success": true,
+      "terminated_by": "sink",
+      "lg": {
+        "steps": 13,
+        "node_calls": 13,
+        "route_calls": 4,
+        "elapsed_ms_median": 3.620499999669846,
+        "elapsed_ms_p95": 3.9985000039450824
+      },
+      "fs": {
+        "steps": 13,
+        "node_calls": 13,
+        "route_calls": 9,
+        "elapsed_ms_median": 0.35930000012740493,
+        "elapsed_ms_p95": 0.37880000309087336
+      },
+      "fs_hybrid": {
+        "steps": 13,
+        "node_calls": 13,
+        "route_calls": 5,
+        "ann_calls": 4,
+        "cache_hits": 1,
+        "elapsed_ms_median": 0.24139999732142314,
+        "elapsed_ms_p95": 0.25240000104531646
+      },
+      "verdict": {
+        "correctness": "tie",
+        "exec": "tie",
+        "route": "LG",
+        "latency": "FS"
+      }
+    }
+  ],
+  "realworld": {
+    "n": 200,
+    "consistency_rate": 1.0,
+    "lg_latency": {
+      "n": 200,
+      "mean": 2.9362340002990095,
+      "median": 2.3029000003589317,
+      "p95": 4.16630000108853,
+      "stdev": 1.5310162074020057,
+      "min": 1.8492999952286482,
+      "max": 19.719399999303278
+    },
+    "fs_latency": {
+      "n": 200,
+      "mean": 0.400707499939017,
+      "median": 0.3596499991544988,
+      "p95": 0.5474999998114072,
+      "stdev": 0.11898409302449564,
+      "min": 0.26420000358484685,
+      "max": 1.0670999981812201
+    },
+    "hyb_latency": {
+      "n": 200,
+      "mean": 0.18914600022981176,
+      "median": 0.15150000035646372,
+      "p95": 0.279799998679664,
+      "stdev": 0.06697047959734173,
+      "min": 0.1249999986612238,
+      "max": 0.4932000010740012
+    },
+    "lg_route_calls": {
+      "n": 200,
+      "mean": 2.38,
+      "median": 1.0,
+      "p95": 4.0,
+      "stdev": 1.4951922953252534,
+      "min": 1.0,
+      "max": 4.0
+    },
+    "fs_route_calls": {
+      "n": 200,
+      "mean": 6.84,
+      "median": 5.0,
+      "p95": 9.0,
+      "stdev": 1.993589727100338,
+      "min": 5.0,
+      "max": 9.0
+    },
+    "hyb_ann_calls": {
+      "n": 200,
+      "mean": 2.92,
+      "median": 2.0,
+      "p95": 4.0,
+      "stdev": 0.996794863550169,
+      "min": 2.0,
+      "max": 4.0
+    }
+  },
+  "scaling": [
+    {
+      "N": 8,
+      "fs_ms": 0.026599998818710446,
+      "lg_ms": 0.000100000761449337
+    },
+    {
+      "N": 16,
+      "fs_ms": 0.04950000220560469,
+      "lg_ms": 0.000100000761449337
+    },
+    {
+      "N": 32,
+      "fs_ms": 0.030849998438498005,
+      "lg_ms": 0.000100000761449337
+    },
+    {
+      "N": 64,
+      "fs_ms": 0.03764999928534962,
+      "lg_ms": 0.000100000761449337
+    },
+    {
+      "N": 128,
+      "fs_ms": 0.046099994506221265,
+      "lg_ms": 0.000100000761449337
+    },
+    {
+      "N": 256,
+      "fs_ms": 0.06764999852748588,
+      "lg_ms": 0.000100000761449337
+    },
+    {
+      "N": 512,
+      "fs_ms": 0.10974999895552173,
+      "lg_ms": 0.000100000761449337
+    }
+  ],
+  "ood": [
+    {
+      "case": "missing_proficiency",
+      "lg_ok": true,
+      "fs_ok": true,
+      "lg_err": "",
+      "fs_err": ""
+    },
+    {
+      "case": "unknown_subject",
+      "lg_ok": true,
+      "fs_ok": true,
+      "lg_err": "",
+      "fs_err": ""
+    },
+    {
+      "case": "empty_state",
+      "lg_ok": true,
+      "fs_ok": true,
+      "lg_err": "",
+      "fs_err": ""
+    },
+    {
+      "case": "garbage_input",
+      "lg_ok": false,
+      "fs_ok": false,
+      "lg_err": "TypeError('can only concatenate str (not \"int\") to str')",
+      "fs_err": "TypeError('can only concatenate str (not \"int\") to str')"
+    }
+  ],
+  "change": {
+    "fs_runtime_extendable": true,
+    "fs_err": "",
+    "lg_runtime_extendable": false,
+    "lg_err": "compiled graph is immutable; must edit graph.py (add_node + edges) and re-compile",
+    "fs_change_loc": 2,
+    "lg_change_loc": 5
+  },
+  "dimensions": {
+    "功能正确性": {
+      "LG": 1.0,
+      "FS": 1.0,
+      "Hybrid": 1.0
+    },
+    "节点效率(少胜)": {
+      "LG": 0.08928571428571429,
+      "FS": 0.08928571428571429,
+      "Hybrid": 0.08928571428571429
+    },
+    "路由效率(少胜)": {
+      "LG": 0.2631578947368421,
+      "FS": 0.11904761904761904,
+      "Hybrid": 0.23809523809523808
+    },
+    "速度(快胜)": {
+      "LG": 0.25494985131191344,
+      "FS": 0.7680727526683403,
+      "Hybrid": 0.8405762986762565
+    },
+    "规模扩展性": {
+      "LG": 0.9999000092377031,
+      "FS": 0.9011038530670722,
+      "Hybrid": 0.9011038530670722
+    },
+    "普适一致性": {
+      "LG": 1.0,
+      "FS": 1.0,
+      "Hybrid": 1.0
+    },
+    "OOD鲁棒性": {
+      "LG": 0.75,
+      "FS": 0.75,
+      "Hybrid": 0.75
+    },
+    "可维护性(少改胜)": {
+      "LG": 0.16666666666666666,
+      "FS": 0.3333333333333333,
+      "Hybrid": 0.3333333333333333
+    },
+    "可复现性": {
+      "LG": 1.0,
+      "FS": 1.0,
+      "Hybrid": 1.0
+    }
+  }
+}

@@ -444,6 +444,8 @@ DOC = {
 
                 ("h2", "8.6　小结"),
                 ("p", "混合路由器三层把关：够像就直接用（默认，一次查找）→ 势均力敌才请外援（大模型罕见救场）→ 找不到就造新书（涌现）。大模型从“每步必请”降级为“罕见救场”，这是又快又省的根源。下一章看记事本怎么存档、怎么回档。"),
+                ("callout", {"kind": "tip", "title": "进阶：还能更省——混合路由",
+                             "body": "「每跳都做一次 ANN」在确定流程上是浪费。优化技巧：确定的流程段用 goto（0 次 ANN），只在语义分叉用 intent，再把重复的 intent 缓存起来。实测能让路由开销追平传统图、延迟更低，同时保留动态能力。完整做法和实测数据见附录 D。"}),
             ],
         },
 
@@ -770,6 +772,46 @@ DOC = {
                                ["OOD", "分布外：没见过/没预料到的输入"],
                                ["pip / PyPI", "Python 的安装工具 / 官方包仓库"],
                            ]}),
+            ],
+        },
+        {
+            "num": "附录 D",
+            "title": "进阶实战：混合路由——让 Fullspace 全维度不输",
+            "lead": "这一附录讲一个实测验证过的优化技巧：让确定的流程走 goto、语义分叉走 intent、再缓存重复决策。它能让 Fullspace 在路由开销上追平传统图，同时保留动态能力。数据来自一个 8 个 agent 的 K12 教育双框架对比实验。",
+            "blocks": [
+                ("h2", "D.1　一个浪费：纯 intent 每跳都做一次 ANN"),
+                ("p", "第 8 章讲过，Fullspace 默认用 intent 软路由，每翻一本书都要做一次「找最像的」（ANN）。这在需要语义判断的地方很值，但在<b>完全确定的流程段</b>上就浪费了——比如 diagnose 之后一定去 plan，这种固定走向根本不用算。"),
+                ("p", "用传统图（LangGraph）的人常拿这点质疑 Fullspace：「你每跳都算一次，我静态边 0 次计算，你凭什么赢？」其实这不是 Fullspace 的本质劣势，而是<b>默认策略偏保守</b>——它默认全程用语义路由，是为了最大化灵活性。一旦你明确某些段是确定的，就可以省掉那些 ANN。"),
+
+                ("h2", "D.2　混合路由：确定走 goto，语义走 intent"),
+                ("p", "优化思路很简单：<b>确定的流程段用 goto（0 次 ANN），只在真正需要语义判断的分叉用 intent</b>。goto 是硬走向（第 5 章），跳转免费；intent 是软走向，留给不确定的地方。"),
+                ("code", {"lang": "python", "caption": "混合路由：线性段 goto，分叉 intent",
+                          "src": "# 线性段：diagnose 之后一定去 plan，用 goto（0 次 ANN）\ndef diagnose_h(ctx):\n    return NodeResult(updates=diagnose(ctx.state), goto=\"plan\")\n\n# 分叉处：grade 后去 report 还是 analyze，用 intent（1 次 ANN）\ndef grade_h(ctx):\n    updates = grade(ctx.state)\n    wrong = {**ctx.state, **updates}.get(\"wrong_count\", 0)\n    intent = (\"report summarize learning outcomes\"\n              if wrong == 0 else \"analyze diagnose mistakes\")\n    return NodeResult(updates=updates, intent=intent)"}),
+                ("callout", {"kind": "principle", "title": "一个原则：把 ANN 留给真正不确定的地方",
+                             "body": "goto 负责「我知道下一步是谁」的确定跳转（免费）；intent 负责「我得想想下一步该干嘛」的语义跳转（1 次 ANN）。两者搭配，既保留语义路由能力，又不为确定流程付冤枉钱。"}),
+
+                ("h2", "D.3　再加一层：决策缓存"),
+                ("p", "有些场景里，同一个 intent 会反复出现（比如 ReAct 循环里老说「act」「observe」）。第一次算出结果后把它记下来，下次同一个 intent 直接复用，跳过 ANN。"),
+                ("code", {"lang": "python", "caption": "决策缓存：重复 intent 跳过 ANN",
+                          "src": "class HybridRouter(Router):\n    def route(self, intent):\n        if intent in self._cache:        # 命中缓存\n            cap = self.manifold.get(self._cache[intent])\n            return Hit(cap, 1.0)          # 0 次 ANN\n        decision = super().route(intent)  # 真正走 ANN\n        self._cache[intent] = decision.capability.id\n        return decision"}),
+                ("callout", {"kind": "tip", "title": "为什么缓存绝对正确",
+                             "body": "「把一句话变成数字再找最近邻」是确定的过程（同样的话永远得到同样结果），所以缓存永远不会失效。循环场景下，缓存能让昂贵的 ANN 调用数大幅下降。"}),
+
+                ("h2", "D.4　实测：8 个 agent 的 K12 教育对比"),
+                ("p", "为了验证这套优化到底有没有用，作者搭了一个 K12 教育 demo：8 个教学 agent（学情诊断、学习规划、讲解、出题、批改、错题分析、答疑、报告），分别用 LangGraph、纯 Fullspace（全程 intent）、混合版 Fullspace（goto + intent + 缓存）三套方式实现，跑 200 个随机学生负载。结果："),
+                ("table", {"caption": "三版对比（K12 教育 8 agent，200 个随机负载）", "headers": ["指标", "LangGraph", "Fullspace(纯intent)", "Fullspace-混合"],
+                           "rows": [
+                               ["功能正确性", "三版 100% 一致", "三版 100% 一致", "三版 100% 一致"],
+                               ["路由开销·回环场景", "4 次条件边", "9 次 ANN", "4 次 ANN（追平）"],
+                               ["延迟中位（普适）", "2.30 ms", "0.36 ms", "0.15 ms（最快）"],
+                               ["运行时可加 agent", "需重新编译", "可以", "可以"],
+                           ]}),
+                ("callout", {"kind": "key", "title": "关键结论",
+                             "body": "混合版在「路由开销」上追平了 LangGraph（回环场景都是 4 次），延迟反而最低（0.15ms），同时仍能运行时加 agent。这证明：<b>Fullspace 的「路由次数多」不是本质劣势，是默认策略选择</b>，用混合路由就能补齐。"}),
+
+                ("h2", "D.5　下一步：让框架自己学"),
+                ("p", "这个 demo 里，goto/intent 是开发者手动决定的。在产品级，可以让框架<b>自动学习</b>：发现某个 intent 连续多次路由到同一个能力，就自动把它「固化」成 goto（路由热点学习）。这样小白什么都不用管，框架在「确定处省 ANN、动态处用语义」之间自动切换——这才是「自适应混合路由」的完整形态。"),
+                ("p", "完整的 demo 代码和可视化报告在仓库的 demos/k12-education/ 目录下，包含三版实现、200 负载测试、规模 scaling 曲线和交互式报告，你可以直接跑起来验证这些数字。"),
             ],
         },
     ],

@@ -1,0 +1,4 @@
+langgraph>=0.2
+langchain-core>=0.2
+plotly>=5.0
+numpy>=1.24
