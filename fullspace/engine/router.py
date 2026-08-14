@@ -30,7 +30,6 @@ class RouteDecision:
 
     capability: Optional[Capability]
     score: float
-    materialized: bool = False
 
 
 class Router:
@@ -64,12 +63,12 @@ class Router:
 
     def route(self, intent: Optional[Intent]) -> RouteDecision:
         if intent is None:
-            return RouteDecision(None, 0.0, False)
+            return RouteDecision(None, 0.0)
 
         k = min(2, len(self.manifold))
         hits = self.manifold.nearest(intent, k=k) if k > 0 else []
         if not hits:
-            return RouteDecision(None, 0.0, False)
+            return RouteDecision(None, 0.0)
 
         top = hits[0]
         second = hits[1] if len(hits) > 1 else None
@@ -90,7 +89,7 @@ class Router:
 
         # Affinity pruning: clear winner above threshold -> no LLM, return now.
         if chosen.score >= self.threshold:
-            return RouteDecision(chosen.capability, chosen.score, False)
+            return RouteDecision(chosen.capability, chosen.score)
 
         # Near-miss -> spawn-on-miss materialization.
         if self.materializer is not None:
@@ -99,7 +98,7 @@ class Router:
             )
             cap = self.materializer(description, chosen.score)
             self.manifold.register(cap)
-            return RouteDecision(cap, 1.0, True)
+            return RouteDecision(cap, 1.0)
 
         # Below threshold, no materializer: still return best-effort top-1.
-        return RouteDecision(chosen.capability, chosen.score, False)
+        return RouteDecision(chosen.capability, chosen.score)

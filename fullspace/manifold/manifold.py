@@ -15,6 +15,7 @@ design plan:
 
 from __future__ import annotations
 
+import hashlib
 from typing import Callable, Optional, Union
 
 import numpy as np
@@ -92,11 +93,6 @@ class Manifold:
             if cid in self._caps
         ]
 
-    def nearest_id(self, query: Query, k: int = 5) -> list[tuple[str, float]]:
-        """Like ``nearest`` but returns bare (id, score) pairs."""
-        q = self._as_vector(query)
-        return self.index.search(q, k=k)
-
     def find_or_materialize(
         self,
         query: Query,
@@ -117,7 +113,12 @@ class Manifold:
             return hits[0]
         if materializer is None:
             return hits[0] if hits else None
-        description = query if isinstance(query, str) else f"materialized:{abs(hash(query.tobytes()))}"
+        # Deterministic across processes (builtin hash() is PYTHONHASHSEED-salted).
+        description = (
+            query
+            if isinstance(query, str)
+            else f"materialized:{hashlib.sha1(query.tobytes()).hexdigest()[:12]}"
+        )
         best_score = hits[0].score if hits else 0.0
         capability = materializer(description, best_score)
         self.register(capability)

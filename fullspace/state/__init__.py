@@ -13,7 +13,7 @@ from fullspace.state.checkpoint import (
     InMemoryCheckpointer,
     SqliteCheckpointer,
 )
-from fullspace.state.trajectory import TrajectoryStep, annotate_positions
+from fullspace.state.trajectory import annotate_positions
 
 __all__ = [
     "StateSpec",
@@ -25,6 +25,5 @@ __all__ = [
     "Checkpointer",
     "InMemoryCheckpointer",
     "SqliteCheckpointer",
-    "TrajectoryStep",
     "annotate_positions",
 ]

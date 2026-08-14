@@ -11,7 +11,9 @@ are supplied, so streaming, async, and persistence compose freely.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, AsyncIterator, Iterator, Optional
 
 import numpy as np
@@ -67,6 +69,13 @@ class Engine:
         self.handlers: dict[str, NodeHandler] = dict(handlers or {})
         self.state_spec: StateSpec = dict(state_spec or {})
         self.checkpointer = checkpointer
+        self._pool: Optional[ThreadPoolExecutor] = None
+
+    def shutdown(self) -> None:
+        """Release the internal handler thread pool (call when done with the engine)."""
+        if self._pool is not None:
+            self._pool.shutdown(wait=True)
+            self._pool = None
 
     # -- binding ------------------------------------------------------------
 
@@ -139,6 +148,8 @@ class Engine:
         step_groups: list[list[str]] = []
         async for ev in self.astream(task, state=state, thread_id=thread_id, max_steps=max_steps):
             last = ev
+            if ev.group:
+                step_groups.append(list(ev.group))
         if last is None:
             return RunResult(dict(state or {}), [], 0, "empty", None, step_groups)
         final_id = last.trajectory[-1] if last.trajectory else None
@@ -229,15 +240,12 @@ class Engine:
             trajectory.extend(group)
             step_updates, intents, gotos, halted, sink_hit, last_id = self._prep(active)
 
-            for h in active:
+            if any(h.capability.id not in self.handlers for h in active):
+                yield self._end_step(state, trajectory, step_groups, step, group, step_updates,
+                                     thread_id, "no_handler", last_id)
+                return
+            for h, result in zip(active, self._run_group(task, state, trajectory, step, active)):
                 cap = h.capability
-                handler = self.handlers.get(cap.id)
-                if handler is None:
-                    yield self._end_step(state, trajectory, step_groups, step, group, step_updates,
-                                         thread_id, "no_handler", last_id)
-                    return
-                ctx = NodeContext(state=state, trajectory=list(trajectory), step=step, task=task)
-                result = coerce_result(handler(ctx))
                 self._absorb(state, result, step_updates)
                 halted |= result.halt
                 sink_hit |= cap.is_sink
@@ -269,15 +277,12 @@ class Engine:
             trajectory.extend(group)
             step_updates, intents, gotos, halted, sink_hit, last_id = self._prep(active)
 
-            for h in active:
+            if any(h.capability.id not in self.handlers for h in active):
+                yield self._end_step(state, trajectory, step_groups, step, group, step_updates,
+                                     thread_id, "no_handler", last_id)
+                return
+            for h, result in zip(active, await self._run_group_async(task, state, trajectory, step, active)):
                 cap = h.capability
-                handler = self.handlers.get(cap.id)
-                if handler is None:
-                    yield self._end_step(state, trajectory, step_groups, step, group, step_updates,
-                                         thread_id, "no_handler", last_id)
-                    return
-                ctx = NodeContext(state=state, trajectory=list(trajectory), step=step, task=task)
-                result = await self._invoke_handler_async(handler, ctx)
                 self._absorb(state, result, step_updates)
                 halted |= result.halt
                 sink_hit |= cap.is_sink
@@ -351,6 +356,74 @@ class Engine:
 
     async def _invoke_handler_async(self, handler: NodeHandler, ctx: NodeContext) -> NodeResult:
         res = handler(ctx)
+        if inspect.isawaitable(res):
+            res = await res
+        return coerce_result(res)
+
+    # -- concurrent group execution (barrier-free neighbourhoods) ------------
+
+    def _run_group(self, task, state, trajectory, step, active) -> list[NodeResult]:
+        """Execute one step's handlers concurrently; merge afterwards, in order.
+
+        Every handler sees a snapshot of the step-start state (co-activated
+        capabilities must not observe each other's half-merged writes), and the
+        merged result order follows activation order — runs stay deterministic.
+        """
+        if len(active) == 1:
+            ctx = NodeContext(state=dict(state), trajectory=list(trajectory), step=step, task=task)
+            return [self._invoke_sync(self.handlers[active[0].capability.id], ctx)]
+        if self._pool is None:
+            self._pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="fullspace")
+        futures = []
+        for h in active:
+            ctx = NodeContext(state=dict(state), trajectory=list(trajectory), step=step, task=task)
+            futures.append(self._pool.submit(self._invoke_sync, self.handlers[h.capability.id], ctx))
+        return [f.result() for f in futures]
+
+    async def _run_group_async(self, task, state, trajectory, step, active) -> list[NodeResult]:
+        """Async counterpart of ``_run_group``: ``asyncio.gather`` runs the
+        co-activated handlers concurrently (``async def`` handlers overlap their
+        awaits; sync handlers are offloaded to threads)."""
+        if len(active) == 1:
+            ctx = NodeContext(state=dict(state), trajectory=list(trajectory), step=step, task=task)
+            return [await self._invoke_handler_async(self.handlers[active[0].capability.id], ctx)]
+        ctxs = [
+            NodeContext(state=dict(state), trajectory=list(trajectory), step=step, task=task)
+            for _ in active
+        ]
+        results = await asyncio.gather(*(
+            self._offload(self.handlers[h.capability.id], ctx)
+            for h, ctx in zip(active, ctxs)
+        ))
+        return list(results)
+
+    def _invoke_sync(self, handler: NodeHandler, ctx: NodeContext) -> NodeResult:
+        """Call a handler on the synchronous path (``run``/``stream``).
+
+        ``async def`` handlers are rejected with a clear error — they need the
+        async API (``ainvoke``/``astream``); the returned coroutine is closed
+        unstarted so no "never awaited" warning leaks.
+        """
+        res = handler(ctx)
+        if inspect.isawaitable(res):
+            close = getattr(res, "close", None)
+            if close is not None:
+                close()
+            raise TypeError(
+                "async handlers require the async API: use ainvoke/astream "
+                "instead of run/stream"
+            )
+        return coerce_result(res)
+
+    async def _offload(self, handler: NodeHandler, ctx: NodeContext) -> NodeResult:
+        """Run a handler in a thread; await the result there if it is awaitable.
+
+        Sync handlers must not block the event loop while their neighbours
+        (possibly async) are being awaited concurrently. Calling an ``async def``
+        in a thread only creates its coroutine, which is then awaited on the
+        loop — safe for every handler shape, including wrapped callables.
+        """
+        res = await asyncio.to_thread(handler, ctx)
         if inspect.isawaitable(res):
             res = await res
         return coerce_result(res)

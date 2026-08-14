@@ -29,6 +29,9 @@ dev = ["pytest>=7", "pytest-asyncio>=0.21", "mypy>=1.10"]
 [tool.setuptools.packages.find]
 include = ["fullspace*"]
 
+[tool.setuptools.package-data]
+fullspace = ["py.typed"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

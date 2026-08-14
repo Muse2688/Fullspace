@@ -46,7 +46,7 @@ projection**, exactly because a graph has no inherent dimension.
 | 🛡️ | **Graceful OOD degradation** | Always routes to the nearest capability; no explicit fallback wiring required. |
 | 🔁 | **Bidirectional LangGraph interop** | Embed a LangGraph subgraph as a region; export Fullspace as a LangGraph node; run as a langchain `Runnable`. |
 | 💾 | **Persistence & time-travel** | In-memory + SQLite checkpointers; resume; checkpoint history. |
-| 📈 | **Sublinear scaling** | Drop in FAISS for *O(log N)* routing at manifold scale. |
+| 📈 | **Sublinear scaling** | Drop in FAISS for sublinear ANN routing at manifold scale. |
 | 🔄 | **Streaming & async** | `stream`/`astream` yield per-step events; `async def` node handlers (LangGraph stream parity). |
 | 🚀 | **Embedding cache** | Memoizes recurring intent embeddings (20× fewer calls in loops). |
 | 🔬 | **Deterministic & reproducible** | Seedable, same-input-same-trajectory by construction. |
@@ -137,7 +137,7 @@ identical workflows (`python -m fullspace.eval`):
 | Correctness & node-execution on mirrored patterns (linear / branch / loop / ReAct) | **Parity** |
 | **Expressiveness** — dynamic materialization | **Fullspace** (LangGraph inexpressible) |
 | **OOD robustness** — no fallback wired | **Fullspace** (LangGraph errors) |
-| **Routing latency at scale** — FAISS, `eval.scaling` | **Fullspace** (~80–123× at *N*=5k–20k) |
+| **ANN index scaling** — Fullspace's numpy vs. FAISS index, `eval.scaling` (not a LangGraph comparison: pre-wired edges are O(1) at any *N*) | FAISS index ~80–120× faster at *N*=5k–20k |
 | **Barrier-free parallelism** | **Fullspace** |
 | Ecosystem compatibility | **Fullspace** (bidirectional interop + `Runnable`) |
 | Routing overhead on tiny static graphs | LangGraph (pre-wired edges are free; recovered at scale) |
@@ -159,6 +159,16 @@ scaling curves: `python -m fullspace.eval.scaling`.
 python -m fullspace.examples.react_agent
 python -m fullspace.viz            # interactive 3D capability sphere → fullspace_sphere.html
 ```
+
+## Comparison demo
+
+The repo ships a K12-education comparison demo ([`demos/k12-education/`](demos/k12-education/)):
+the same 8 teaching agents implemented three ways — **LangGraph**, **Fullspace**
+(pure-intent routing), and **Fullspace hybrid routing** — benchmarked over 200
+randomized workloads (correctness parity, routing overhead, latency, scaling,
+OOD, and change experiments) with an interactive HTML report. The hybrid variant
+(linear `goto` + branching `intent` + a decision cache) matches LangGraph's
+routing overhead while keeping runtime extensibility. See that directory's README.
 
 ## Roadmap
 

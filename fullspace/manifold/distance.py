@@ -40,11 +40,6 @@ def cosine_to_all(query: np.ndarray, matrix: np.ndarray) -> np.ndarray:
     return unit @ q
 
 
-def affinity(score: float) -> float:
-    """Map cosine similarity [-1, 1] to affinity [0, 1]."""
-    return (float(score) + 1.0) / 2.0
-
-
 def top_k(scores: np.ndarray, k: int) -> list[int]:
     """Indices of the top-k scores, descending. Caps at len(scores)."""
     n = scores.shape[0]

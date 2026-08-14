@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+from typing import Any
+
 import pytest
 
 from fullspace import Capability, HashEmbedder, Manifold
@@ -278,6 +281,64 @@ def test_field_flow_combines_intents_to_navigate():
     assert res.step_groups[1][0] == "next"
     assert "next" in res.trajectory and "end" in res.trajectory
     assert res.terminated_by == "sink"
+
+
+async def test_field_flow_group_runs_concurrently():
+    # Two async handlers in the same activation group must overlap: they
+    # handshake via events, so sequential execution would deadlock (timeout).
+    m = Manifold(HashEmbedder(dim=256))
+    m.register_many(
+        [
+            Capability("a", "alpha topic shared"),
+            Capability("b", "alpha topic variant"),
+            Capability("end", "final answer output", metadata={"sink": True}),
+        ]
+    )
+    started, release = asyncio.Event(), asyncio.Event()
+
+    async def handler_a(ctx):
+        started.set()
+        await release.wait()
+        return NodeResult(updates={"a": 1}, goto="end")
+
+    async def handler_b(ctx):
+        await started.wait()
+        release.set()
+        return NodeResult(updates={"b": 1}, goto="end")
+
+    eng = Engine(m, flow=FieldFlow(width=2))
+    eng.bind("a", handler_a)
+    eng.bind("b", handler_b)
+    eng.bind("end", lambda ctx: NodeResult(updates={"answer": "done"}))
+    res = await asyncio.wait_for(eng.ainvoke("alpha topic shared"), timeout=5)
+    assert set(res.step_groups[0]) == {"a", "b"}
+    assert res.terminated_by == "sink"
+
+
+def test_field_flow_group_sees_step_start_state():
+    # Co-activated handlers get a snapshot of the step-start state: neither
+    # observes the other's not-yet-merged write.
+    m = Manifold(HashEmbedder(dim=256))
+    m.register_many(
+        [
+            Capability("a", "alpha topic shared"),
+            Capability("b", "alpha topic variant"),
+            Capability("end", "final answer output", metadata={"sink": True}),
+        ]
+    )
+    seen: dict[str, Any] = {}
+    eng = Engine(m, flow=FieldFlow(width=2))
+    eng.bind("a", lambda ctx: seen.__setitem__("a", dict(ctx.state)) or NodeResult(updates={"a": 1}, goto="end"))
+    eng.bind("b", lambda ctx: seen.__setitem__("b", dict(ctx.state)) or NodeResult(updates={"b": 1}, goto="end"))
+    eng.bind("end", lambda ctx: NodeResult(updates={"answer": "done"}))
+    res = eng.run("alpha topic shared", state={"seed": 0})
+    assert res.terminated_by == "sink"
+    # Neither handler saw the other's intra-step write ("a"/"b" keys absent).
+    assert "a" not in seen["a"] and "a" not in seen["b"]
+    assert "b" not in seen["a"] and "b" not in seen["b"]
+    # But both saw the pre-run state, and the final state has both writes.
+    assert seen["a"]["seed"] == 0 and seen["b"]["seed"] == 0
+    assert res.state["a"] == 1 and res.state["b"] == 1
 
 
 # -- Phase 4: wavefront (expanding parallel activation) ---------------------

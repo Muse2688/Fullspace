@@ -56,7 +56,7 @@ task → embed → ANN locate start
 ## The four latency mechanisms (the axis Fullspace wins at scale)
 
 1. **Affinity pruning** — one ANN query replaces N router evaluations. (`router.py`)
-2. **Sublinear ANN** — FAISS IVFFlat beats O(N) routing ~80-123× at N=5k-20k. (`index.py`)
+2. **Sublinear ANN** — FAISS IVFFlat beats our O(N) numpy index ~80-120× at N=5k-20k (an internal index comparison; LangGraph's pre-wired edges are O(1) at any N). (`index.py`)
 3. **Barrier-free parallelism** — field/wavefront activate sets without superstep barriers. (`flow/`)
 4. **(deferred)** speculative pre-warm + neighbour prefix caching — most meaningful once real LLMs are plugged in.
 
@@ -76,7 +76,7 @@ Run `python -m fullspace.eval` and `python -m fullspace.eval.scaling`.
 | Correctness + node-execution on mirrored patterns | **parity** |
 | Expressiveness (dynamic materialization) | **Fullspace wins** (LG inexpressible) |
 | OOD robustness (no explicit fallback wired) | **Fullspace wins** (LG errors) |
-| Routing latency at scale (FAISS) | **Fullspace wins** (~80-123×) |
+| ANN index scaling (FAISS vs our numpy index; LG edges stay O(1)) | FAISS index ~80-120× faster at N=5k-20k |
 | Barrier-free parallelism | **Fullspace wins** |
 | Ecosystem compat | **Fullspace wins** (bidirectional interop + Runnable) |
 | Routing overhead on tiny static graphs | LangGraph (its pre-wired edges are free; recovered at scale) |

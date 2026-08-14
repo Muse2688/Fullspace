@@ -31,11 +31,6 @@ class Embedder(ABC):
     def embed(self, text: str) -> np.ndarray:
         """Return a unit vector of shape (dim,)."""
 
-    def embed_batch(self, texts: list[str]) -> np.ndarray:
-        if not texts:
-            return np.zeros((0, self.dim), dtype=np.float32)
-        return np.vstack([self.embed(t) for t in texts])
-
 
 class CachedEmbedder(Embedder):
     """Memoizing wrapper around any embedder.
@@ -72,11 +67,6 @@ class CachedEmbedder(Embedder):
         self._cache[text] = vec
         return vec
 
-    def embed_batch(self, texts: list[str]) -> np.ndarray:
-        if not texts:
-            return np.zeros((0, self.dim), dtype=np.float32)
-        return np.vstack([self.embed(t) for t in texts])
-
 
 class HashEmbedder(Embedder):
     """Dependency-free, deterministic embedder via signed feature hashing.
@@ -107,12 +97,13 @@ class HashEmbedder(Embedder):
 
 
 def _optional_embedder(name: str):  # pragma: no cover - import guard helper
+    extra = {"sentence_transformers": "embed-st", "openai": "embed-openai"}.get(name, "optional")
     try:
         return __import__(name)
     except ImportError as e:  # pragma: no cover
         raise ImportError(
             f"Optional dependency for {name!r} is not installed. "
-            f"Install the relevant extra, e.g. `pip install -e .[embed-st]`."
+            f"Install the relevant extra, e.g. `pip install fullspace[{extra}]`."
         ) from e
 
 

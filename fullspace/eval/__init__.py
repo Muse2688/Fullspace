@@ -14,6 +14,6 @@ Run:  python -m fullspace.eval
 """
 
 from fullspace.eval.cases import CASES, CaseResult, run_all
-from fullspace.eval.metrics import CaseResult as _CR  # noqa: F401  (re-export friendly)
+from fullspace.eval.metrics import Metrics, format_table
 
-__all__ = ["CASES", "CaseResult", "run_all"]
+__all__ = ["CASES", "CaseResult", "run_all", "Metrics", "format_table"]

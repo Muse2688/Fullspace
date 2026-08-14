@@ -1,11 +1,16 @@
 """Routing-latency scaling benchmark: numpy brute-force vs FAISS.
 
-This is the data that flips Fullspace's only losing axis (routing overhead) at
-scale. With the default numpy index, one Fullspace route is O(N) dot products —
-the same asymptotic cost as a LangGraph semantic router that embeds the task and
-compares against N nodes. With a sublinear FAISS index (HNSW/IVF), Fullspace
-routing becomes O(log N), so the per-hop ANN query that costs the same as a
-LangGraph router at small N pulls ahead decisively as N grows.
+Measures Fullspace's own two ANN indexes against each other as the manifold
+grows. With the default numpy index, one Fullspace route is O(N) dot products.
+With a sublinear FAISS index (IVFFlat, roughly O(sqrt(N)) probe cost), the
+per-hop query cost grows far more slowly — this is what keeps Fullspace's
+soft routing viable at manifold scale.
+
+Honesty note: this is *not* a LangGraph comparison. LangGraph's pre-wired
+conditional edges are O(1) lookups at any N; their cost does not grow with
+graph size. The axis where the FAISS index matters is comparing against
+routing strategies that must score N candidates per hop (as Fullspace's
+soft routing does by design, in exchange for runtime extensibility).
 
 Run:  python -m fullspace.eval.scaling
 """

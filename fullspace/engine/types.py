@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Union
 
@@ -46,7 +47,10 @@ class NodeResult:
     halt: bool = False
 
 
-NodeHandler = Callable[[NodeContext], Union[NodeResult, dict, None]]
+_HandlerReturn = Union[NodeResult, dict, Optional[None]]
+
+#: A node handler: sync (returns a value) or ``async def`` (returns an awaitable).
+NodeHandler = Callable[[NodeContext], Union[_HandlerReturn, Awaitable[_HandlerReturn]]]
 
 
 def coerce_result(value: Union[NodeResult, dict, None]) -> NodeResult:
