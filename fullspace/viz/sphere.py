@@ -12,6 +12,17 @@ from fullspace.manifold.manifold import Manifold
 
 PLOTLY_CDN = "https://cdn.plot.ly/plotly-2.35.2.min.js"
 
+
+def _plotly_js() -> str:
+    """Inline the plotly bundle when the package is installed (offline-ready);
+    fall back to the CDN otherwise so the zero-dep default still works online."""
+    try:
+        from plotly.offline import get_plotlyjs  # type: ignore
+
+        return "<script>" + get_plotlyjs() + "</script>"
+    except ImportError:  # pragma: no cover - fallback path
+        return f"<script src='{PLOTLY_CDN}'></script>"
+
 _JS_BODY = r"""
 const DATA = window.__FS_DATA__;
 const nodes = DATA.nodes;
@@ -115,8 +126,8 @@ def render_sphere(
     html = (
         "<!DOCTYPE html>\n<html lang='en'><head><meta charset='utf-8'>\n"
         f"<title>{title}</title>\n"
-        f"<script src='{PLOTLY_CDN}'></script>\n"
-        "<style>body{margin:0;font-family:system-ui,sans-serif;background:#0b1020;color:#e2e8f0}"
+        + _plotly_js()
+        + "\n<style>body{margin:0;font-family:system-ui,sans-serif;background:#0b1020;color:#e2e8f0}"
         "#chart{width:100vw;height:100vh}</style>\n"
         "</head><body><div id='chart'></div>\n"
         "<script>window.__FS_DATA__ = " + data + ";</script>\n"

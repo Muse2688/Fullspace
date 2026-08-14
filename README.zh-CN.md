@@ -36,7 +36,7 @@ Fullspace 用**能力空间路由**取代连线。每个能力是高维语义流
 | ⚡ | **无屏障并行** | 每步激活一个邻域——无超步同步屏障 |
 | 🛡️ | **OOD 优雅降级** | 始终路由到最近能力，无需显式 fallback 接线 |
 | 🔁 | **双向 LangGraph 互操作** | LangGraph 子图作为区域嵌入；Fullspace 导出为 LangGraph 节点；作为 langchain `Runnable` 运行 |
-| 💾 | **持久化与时间旅行** | 内存 + SQLite 检查点；恢复；检查点历史 |
+| 💾 | **持久化与时间旅行** | 内存 + SQLite 检查点；恢复；检查点历史；经 `LangGraphCheckpointer` 复用 LangGraph 生态后端（Postgres 等） |
 | 📈 | **次线性扩展** | 接入 FAISS 获得次线性 ANN 路由 |
 | 🔄 | **流式与异步** | `stream`/`astream` 逐步产出事件；支持 `async def` 节点（对标 LangGraph stream） |
 | 🚀 | **embedding 缓存** | 缓存重复 intent 的 embedding（循环场景调用数降 20×） |
