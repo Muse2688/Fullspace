@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fullspace"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Fullspace — a 3D capability-manifold agent orchestration framework (a LangGraph superset)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -37,6 +37,10 @@ include = ["fullspace*"]
 
 [tool.setuptools.package-data]
 fullspace = ["py.typed"]
+
+# Single source of truth for the version: fullspace/__init__.py __version__.
+[tool.setuptools.dynamic]
+version = { attr = "fullspace.__version__" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

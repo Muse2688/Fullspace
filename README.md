@@ -45,7 +45,7 @@ projection**, exactly because a graph has no inherent dimension.
 | ⚡ | **Barrier-free parallelism** | Activate a neighbourhood per step — no superstep synchronization barrier. |
 | 🛡️ | **Graceful OOD degradation** | Always routes to the nearest capability; no explicit fallback wiring required. |
 | 🔁 | **Bidirectional LangGraph interop** | Embed a LangGraph subgraph as a region; export Fullspace as a LangGraph node; run as a langchain `Runnable`. |
-| 💾 | **Persistence & time-travel** | In-memory + SQLite checkpointers; resume; checkpoint history. |
+| 💾 | **Persistence & time-travel** | In-memory + SQLite checkpointers; resume; checkpoint history; reuse LangGraph-ecosystem backends (Postgres etc.) via `LangGraphCheckpointer`. |
 | 📈 | **Sublinear scaling** | Drop in FAISS for sublinear ANN routing at manifold scale. |
 | 🔄 | **Streaming & async** | `stream`/`astream` yield per-step events; `async def` node handlers (LangGraph stream parity). |
 | 🚀 | **Embedding cache** | Memoizes recurring intent embeddings (20× fewer calls in loops). |
