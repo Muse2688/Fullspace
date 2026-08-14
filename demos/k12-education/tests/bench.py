@@ -83,10 +83,10 @@ def run_pair(scenario, repeats=5):
 
 
 def verdict(case):
-    """逐轴裁决：correctness / exec / route / latency。返回 dict，每轴 'FS'/'LG'/'tie'。"""
+    """逐轴裁决：correctness / exec / route / latency。返回 dict，correctness 为 'pass'/'fail'，其余 'FS'/'LG'/'tie'。"""
     out = {}
-    out["correctness"] = "tie" if (case["success"]) else ("tie" if case["success"] else "tie")
-    # correctness：两版都成功则 tie；这里 success 已要求两者一致
+    # success 要求三版轨迹与产出完全一致，只有通过/不通过，无胜者可言
+    out["correctness"] = "pass" if case["success"] else "fail"
     out["exec"] = _less_is_better(case["lg"]["node_calls"], case["fs"]["node_calls"])
     out["route"] = _less_is_better(case["lg"]["route_calls"], case["fs"]["route_calls"])
     out["latency"] = _less_is_better(case["lg"]["elapsed_ms_median"], case["fs"]["elapsed_ms_median"])

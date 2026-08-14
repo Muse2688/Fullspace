@@ -72,13 +72,18 @@ def _answer_intent(ctx):
 
 
 def build(use_counting=False):
+    """构建混合路由引擎。
+
+    HybridRouter（含决策缓存）是本设计的一部分、始终启用——延迟测量与
+    缓存计数来自同一配置，避免「计时轮不挂缓存」的口径混淆。
+    ``use_counting`` 仅控制是否暴露计数器。
+    """
     m = Manifold(HashEmbedder(dim=256))
     m.register_many([
         Capability(cid, desc, metadata=({"sink": True} if cid == SINK else {}))
         for cid, desc in CAPABILITIES
     ])
-    router = HybridRouter(m) if use_counting else None
-    eng = Engine(m, router=router)
+    eng = Engine(m, router=HybridRouter(m))
 
     eng.bind("diagnose", _linear_goto(A.diagnose, "diagnose"))
     eng.bind("plan",     _linear_goto(A.plan, "plan"))

@@ -37,7 +37,7 @@ Fullspace 用**能力空间路由**取代连线。每个能力是高维语义流
 | 🛡️ | **OOD 优雅降级** | 始终路由到最近能力，无需显式 fallback 接线 |
 | 🔁 | **双向 LangGraph 互操作** | LangGraph 子图作为区域嵌入；Fullspace 导出为 LangGraph 节点；作为 langchain `Runnable` 运行 |
 | 💾 | **持久化与时间旅行** | 内存 + SQLite 检查点；恢复；检查点历史 |
-| 📈 | **次线性扩展** | 接入 FAISS 获得 *O(log N)* 路由 |
+| 📈 | **次线性扩展** | 接入 FAISS 获得次线性 ANN 路由 |
 | 🔄 | **流式与异步** | `stream`/`astream` 逐步产出事件；支持 `async def` 节点（对标 LangGraph stream） |
 | 🚀 | **embedding 缓存** | 缓存重复 intent 的 embedding（循环场景调用数降 20×） |
 | 🔬 | **确定可复现** | 可设种子，同输入同轨迹 |
@@ -111,8 +111,12 @@ result = agent.run("search the web for information")
 print(result.trajectory)   # ['search', 'summarize', 'end']
 ```
 
-将 `HashEmbedder` 换成 `SentenceTransformersEmbedder` 或 `OpenAIEmbedder`，把纯函数
-handler 换成 LLM 驱动的，即可从"可运行机制"走向"生产级语义"。
+将 `HashEmbedder` 换成 `Model2VecEmbedder`（轻量静态语义，约 30 MB，无 torch）、
+`SentenceTransformersEmbedder` 或 `OpenAIEmbedder`，把纯函数 handler 换成 LLM 驱动的，
+即可从"可运行机制"走向"生产级语义"。
+
+> **换嵌入器的调参提示：** 不同嵌入器的余弦分数分布不同（哈希嵌入偏低且分散，
+> 语义嵌入普遍偏高）。切换后请为你的流形重新调 `Router(threshold=..., margin=...)`。
 
 ## 基准测试（对照真实 LangGraph）
 
@@ -123,7 +127,7 @@ Fullspace 在相同工作流上与已安装的 LangGraph 直接对比（`python 
 | 镜像模式（线性/分支/循环/ReAct）的正确性与节点执行数 | **平手** |
 | **表达力**——动态物化 | **Fullspace 胜**（LangGraph 无法表达） |
 | **OOD 鲁棒性**——无 fallback 接线 | **Fullspace 胜**（LangGraph 报错） |
-| **规模化路由延迟**——FAISS，`eval.scaling` | **Fullspace 胜**（*N*=5k–20k 时约 80–123×） |
+| **ANN 索引扩展性**——Fullspace 自家 numpy vs. FAISS 索引，`eval.scaling`（非 LangGraph 对比：预连边在任何 *N* 下都是 O(1)） | FAISS 索引在 *N*=5k–20k 时快约 80–120× |
 | **无屏障并行** | **Fullspace 胜** |
 | 生态兼容性 | **Fullspace 胜**（双向互操作 + `Runnable`） |
 | 微型静态图的路由开销 | LangGraph（预连边免费；规模化后被反超） |

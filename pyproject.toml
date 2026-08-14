@@ -16,9 +16,15 @@ dependencies = [
 
 [project.optional-dependencies]
 # Real semantic embeddings (replaces HashEmbedder for production routing)
+# embed-m2v is the lightweight option: ~30 MB static model, no torch, CPU-fast.
+# (embed-st pulls in PyTorch — several GB.)
+embed-m2v = ["model2vec>=0.4"]
 embed-st = ["sentence-transformers>=2.2"]
 embed-openai = ["openai>=1.0"]
 # Scale ANN beyond brute-force numpy
+# ann-usearch is incremental (add/remove without rebuild) — pair it with
+# spawn-on-miss materialization; ann-faiss suits static batch workloads.
+ann-usearch = ["usearch>=2.0"]
 ann-faiss = ["faiss-cpu>=1.7"]
 # Non-linear 3D projection (PCAProjector is the zero-dep fallback)
 proj-umap = ["umap-learn>=0.5"]
@@ -28,6 +34,9 @@ dev = ["pytest>=7", "pytest-asyncio>=0.21", "mypy>=1.10"]
 
 [tool.setuptools.packages.find]
 include = ["fullspace*"]
+
+[tool.setuptools.package-data]
+fullspace = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -77,7 +77,13 @@ def ood_test():
             fs_ok, fs_err = True, ""
         except Exception as e:
             fs_ok, fs_err = False, repr(e)[:100]
-        cases.append({"case": name, "lg_ok": lg_ok, "fs_ok": fs_ok, "lg_err": lg_err, "fs_err": fs_err})
+        try:
+            run_hyb(dict(scenario), count_routes=False)
+            hyb_ok, hyb_err = True, ""
+        except Exception as e:
+            hyb_ok, hyb_err = False, repr(e)[:100]
+        cases.append({"case": name, "lg_ok": lg_ok, "fs_ok": fs_ok, "hyb_ok": hyb_ok,
+                      "lg_err": lg_err, "fs_err": fs_err, "hyb_err": hyb_err})
 
     probe("missing_proficiency", {"student_name": "X", "subject": "math", "simulated_answers": {}, "trajectory": []})
     probe("unknown_subject", {"student_name": "Y", "subject": "火星语", "proficiency": 50, "simulated_answers": {}, "seed": 1, "trajectory": []})
@@ -87,29 +93,93 @@ def ood_test():
 
 
 # ─────────────── 变更实验：加第 9 个 agent ───────────────
+def _lg_build_extended():
+    """「编辑 graph.py 加第 9 个 agent」后的真实代码：teach→motivate→quiz。
+
+    结构与 langgraph_demo/graph.build() 完全镜像（含 node/counted_router 包装），
+    仅多出 motivate 相关行；LOC 差值用 inspect 对两个函数源码做机械对比，不手填。
+    """
+    from langgraph.graph import StateGraph, START, END
+    from shared.state import K12State
+    from shared import agents as A
+    from shared import routing as R
+
+    node_calls, route_calls = [], []
+
+    def node(fn):
+        def h(state):
+            node_calls.append(1)
+            return fn(state)
+        h.__name__ = fn.__name__
+        return h
+
+    def counted_router(rfn):
+        def r(state):
+            route_calls.append(1)
+            return rfn(state)
+        return r
+
+    def motivate(state):
+        return {"motivated": True,
+                "trajectory": state.get("trajectory", []) + ["motivate"]}
+
+    g = StateGraph(K12State)
+    for name in ["diagnose", "plan", "teach", "quiz", "grade", "analyze", "answer", "report"]:
+        g.add_node(name, node(A.AGENTS[name]))
+    g.add_node("motivate", node(motivate))      # ← 变更 1：新节点
+    g.add_edge(START, "diagnose")
+    g.add_edge("diagnose", "plan")
+    g.add_edge("plan", "teach")
+    g.add_edge("teach", "motivate")             # ← 变更 2：原 teach→quiz 改向
+    g.add_edge("motivate", "quiz")              # ← 变更 3：新边
+    g.add_edge("quiz", "grade")
+    g.add_edge("analyze", "answer")
+    g.add_conditional_edges("grade", counted_router(R.after_grade),
+                            {"report": "report", "analyze": "analyze"})
+    g.add_conditional_edges("answer", counted_router(R.after_answer),
+                            {"teach": "teach", "report": "report"})
+    g.add_edge("report", END)
+    app = g.compile()
+    return app, node_calls, route_calls
+
+
 def change_test():
-    # Fullspace：编译后运行时 register + bind，无需重新构建
+    import inspect
+    from langgraph_demo.graph import build as lg_build_original
+
+    # Fullspace：编译后的引擎上运行时 register + bind（无需重新构建）
     fs_runtime_ok = True
     fs_err = ""
     try:
         eng, m = build()
         m.register(Capability("motivate", "motivate and encourage the student to keep learning"))
         eng.bind("motivate", lambda ctx: NodeResult(updates={"motivated": True}))
-        # 能跑通即说明运行时可扩展（不重新 compile）
         eng.run("diagnose assess student proficiency and identify weak points",
                 state={"simulated_answers": {}, "trajectory": []}, max_steps=3)
     except Exception as e:
         fs_runtime_ok, fs_err = False, repr(e)[:100]
 
-    # LangGraph：编译后的图是 immutable，加节点必须改 graph.py 并重新 compile
-    lg_runtime_ok = False
-    lg_err = "compiled graph is immutable; must edit graph.py (add_node + edges) and re-compile"
+    # LangGraph：真实构建扩展图并跑通（证明可行），但必须改源码并重新 compile
+    lg_runtime_ok = True
+    lg_err = ""
+    try:
+        app9, _, _ = _lg_build_extended()
+        out = app9.invoke({"simulated_answers": {}, "trajectory": []})
+        assert "motivate" in out.get("trajectory", []), "extended graph ran but skipped motivate"
+    except Exception as e:
+        lg_runtime_ok, lg_err = False, repr(e)[:100]
+
+    # LOC 差值：两个 build 函数源码行数的机械对比（含注释行，双方口径一致）
+    orig_lines = len(inspect.getsource(lg_build_original).splitlines())
+    ext_lines = len(inspect.getsource(_lg_build_extended).splitlines())
+    lg_change_loc = ext_lines - orig_lines
 
     return {
         "fs_runtime_extendable": fs_runtime_ok, "fs_err": fs_err,
-        "lg_runtime_extendable": lg_runtime_ok, "lg_err": lg_err,
-        "fs_change_loc": 2,   # register + bind 两行
-        "lg_change_loc": 5,   # add_node + 两条 edge + 路由 + 重新 compile
+        "lg_runtime_extendable": False,  # 编译后的图 immutable：必须改源码重新 compile
+        "lg_change_verified": lg_runtime_ok, "lg_err": lg_err,
+        "fs_change_loc": 2,          # register + bind 两行（运行时生效，无需重建引擎）
+        "lg_change_loc": lg_change_loc,  # 实测：扩展版 build 比原版多的行数（含重新 compile）
     }
 
 
