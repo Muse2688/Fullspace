@@ -79,16 +79,15 @@ ambiguous junctions, and can **materialize** a new capability on a near-miss. Se
 
 ## Installation
 
-> `fullspace` is **not yet on PyPI** (the name is available — publishing is planned).
-> Install from GitHub for now:
+> `fullspace` **is on PyPI** (`0.1.0`) — install directly with pip:
 
 ```bash
 # core (zero heavy deps)
-pip install git+https://github.com/Muse2688/Fullspace.git
+pip install fullspace
 pip install faiss-cpu                       # + sublinear ANN at scale
 ```
 
-With extras (LangGraph interop/eval, tests, mypy), clone and install editable:
+For extras (LangGraph interop/eval, tests, mypy), or to hack on the source, clone and install editable:
 
 ```bash
 git clone https://github.com/Muse2688/Fullspace.git

@@ -68,15 +68,15 @@ Fullspace 用**能力空间路由**取代连线。每个能力是高维语义流
 
 ## 安装
 
-> `fullspace` **尚未发布到 PyPI**（名字可用，发布在计划中）。目前从 GitHub 安装：
+> `fullspace` **已发布到 PyPI**（当前 `0.1.0`），直接用 pip 安装：
 
 ```bash
 # 核心（零重依赖）
-pip install git+https://github.com/Muse2688/Fullspace.git
-pip install faiss-cpu                       # + 规模化次线性 ANN
+pip install fullspace
+pip install faiss-cpu          # + 规模化次线性 ANN
 ```
 
-带 extras（LangGraph 互操作/评测、测试、mypy），克隆后可编辑安装：
+需要 LangGraph 互操作/评测、测试、mypy 等 extras，或想改源码贡献代码，可克隆仓库做可编辑安装：
 
 ```bash
 git clone https://github.com/Muse2688/Fullspace.git
