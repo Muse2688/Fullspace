@@ -10,8 +10,9 @@
 Optional extras-backed classes are importable from here too (lazily): raising
 a helpful ImportError only if you actually instantiate them without the extra:
 
-    SentenceTransformersEmbedder / OpenAIEmbedder   (embed-st / embed-openai)
-    FaissIndex                                       (ann-faiss)
+    SentenceTransformersEmbedder / OpenAIEmbedder / Model2VecEmbedder
+                                                    (embed-st / embed-openai / embed-m2v)
+    UsearchIndex / FaissIndex                        (ann-usearch / ann-faiss)
     UMAPProjector                                    (proj-umap)
 """
 
@@ -42,6 +43,8 @@ __all__ = [
     # lazily re-exported (need optional extras at instantiation time)
     "SentenceTransformersEmbedder",
     "OpenAIEmbedder",
+    "Model2VecEmbedder",
+    "UsearchIndex",
     "FaissIndex",
     "UMAPProjector",
 ]
@@ -49,6 +52,8 @@ __all__ = [
 _LAZY_OPTIONAL: dict[str, str] = {
     "SentenceTransformersEmbedder": "fullspace.manifold.embedding",
     "OpenAIEmbedder": "fullspace.manifold.embedding",
+    "Model2VecEmbedder": "fullspace.manifold.embedding",
+    "UsearchIndex": "fullspace.manifold.index",
     "FaissIndex": "fullspace.manifold.index",
     "UMAPProjector": "fullspace.manifold.projection",
 }

@@ -123,9 +123,13 @@ result = agent.run("search the web for information")
 print(result.trajectory)   # ['search', 'summarize', 'end']
 ```
 
-Replace `HashEmbedder` with `SentenceTransformersEmbedder` or `OpenAIEmbedder`, and the
-plain handlers with LLM-backed ones, to move from runnable mechanics to production
-semantics.
+Replace `HashEmbedder` with `Model2VecEmbedder` (lightweight static semantics, ~30 MB,
+no torch), `SentenceTransformersEmbedder`, or `OpenAIEmbedder` — and the plain handlers
+with LLM-backed ones — to move from runnable mechanics to production semantics.
+
+> **Tuning note when swapping embedders:** cosine-score ranges differ per embedder
+> (hash embeddings score low and wide; semantic embeddings cluster higher). After
+> swapping, retune `Router(threshold=..., margin=...)` for your manifold.
 
 ## Benchmarks (vs. real LangGraph)
 

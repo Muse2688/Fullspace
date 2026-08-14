@@ -144,8 +144,12 @@ h1{{color:#1a3a6c;border-bottom:3px solid #1a3a6c;padding-bottom:8px}}
 
 <h2>附录：OOD 与变更实验</h2>
 <div class="note">
-<b>OOD：</b>LG 通过 {sum(1 for o in data['ood'] if o['lg_ok'])}/{len(data['ood'])}，FS/Hybrid 通过 {sum(1 for o in data['ood'] if o['fs_ok'])}/{len(data['ood'])}（Hybrid 与 FS 同）。<br>
-<b>变更（加第 9 个 agent）：</b>FS/Hybrid 运行时 register+bind 即可（{data['change']['fs_change_loc']} 行）；LG 需改 graph.py 并重新 compile。
+<b>OOD：</b>LG 通过 {sum(1 for o in data['ood'] if o['lg_ok'])}/{len(data['ood'])}，
+FS 通过 {sum(1 for o in data['ood'] if o['fs_ok'])}/{len(data['ood'])}，
+Hybrid 通过 {sum(1 for o in data['ood'] if o.get('hyb_ok'))}/{len(data['ood'])}（均为实测）。<br>
+<b>变更（加第 9 个 agent）：</b>FS/Hybrid 运行时 register+bind 即可（{data['change']['fs_change_loc']} 行）；
+LG 扩展图已真实构建跑通（{'成功' if data['change'].get('lg_change_verified') else '失败'}），
+但需改 graph.py 共 +{data['change']['lg_change_loc']} 行并重新 compile（源码行数机械对比实测）。
 </div>
 <p style="color:#888;font-size:12px;margin-top:30px">数据：metrics.json · tests/run_all.py · Fullspace 0.1.0 + LangGraph 1.x</p>
 </body></html>"""

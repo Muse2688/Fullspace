@@ -97,7 +97,11 @@ class HashEmbedder(Embedder):
 
 
 def _optional_embedder(name: str):  # pragma: no cover - import guard helper
-    extra = {"sentence_transformers": "embed-st", "openai": "embed-openai"}.get(name, "optional")
+    extra = {
+        "sentence_transformers": "embed-st",
+        "openai": "embed-openai",
+        "model2vec": "embed-m2v",
+    }.get(name, "optional")
     try:
         return __import__(name)
     except ImportError as e:  # pragma: no cover
@@ -135,5 +139,29 @@ class OpenAIEmbedder(Embedder):  # pragma: no cover - needs extra + key
     def embed(self, text: str) -> np.ndarray:
         resp = self._client.embeddings.create(model=self.model, input=text)
         vec = np.asarray(resp.data[0].embedding, dtype=np.float32)
+        n = np.linalg.norm(vec)
+        return vec / n if n > 0 else vec
+
+
+class Model2VecEmbedder(Embedder):  # pragma: no cover - needs extra
+    """Distilled static semantic embeddings via model2vec (optional).
+
+    The sweet spot between HashEmbedder (zero-dep but literal) and a full
+    transformer (real semantics but heavy): a static embedding table gives
+    genuine semantic similarity — "book a flight" lands near "buy a plane
+    ticket" — in a ~30 MB package with millisecond CPU inference and no
+    torch/onnx runtime. Install with ``pip install fullspace[embed-m2v]``.
+
+    Note: switching embedders changes the cosine-score range of your manifold;
+    retune ``Router(threshold=..., margin=...)`` after swapping (see README).
+    """
+
+    def __init__(self, model_name: str = "minishlab/potion-base-8M"):
+        m2v = _optional_embedder("model2vec")
+        self._model = m2v.StaticModel.from_pretrained(model_name)
+        self.dim = int(self._model.embedding_dim)
+
+    def embed(self, text: str) -> np.ndarray:
+        vec = np.asarray(self._model.encode(text), dtype=np.float32).ravel()
         n = np.linalg.norm(vec)
         return vec / n if n > 0 else vec

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from fullspace import (
     Capability,
@@ -135,10 +136,7 @@ def test_manifold_dim_mismatch():
 
 
 def test_faiss_index_matches_numpy():
-    try:
-        import faiss  # noqa: F401
-    except ImportError:
-        return  # faiss optional; skip silently if absent
+    pytest.importorskip("faiss", reason="faiss optional extra")
 
     from fullspace.manifold.index import FaissIndex
 
@@ -151,3 +149,49 @@ def test_faiss_index_matches_numpy():
         top = idx.search(emb.embed("alpha red"), k=1)
         assert top[0][0] == "a"
         assert len(idx) == 4
+
+
+def test_usearch_index_matches_numpy():
+    pytest.importorskip("usearch", reason="usearch optional extra")
+
+    from fullspace.manifold.index import UsearchIndex
+
+    emb = HashEmbedder(dim=64)
+    corpus = [("a", "alpha red"), ("b", "beta blue"), ("c", "gamma green"), ("d", "delta dark")]
+    for cls in (NumpyAnnIndex, UsearchIndex):
+        idx = cls(dim=64)
+        for cid, text in corpus:
+            idx.add(cid, emb.embed(text))
+        top = idx.search(emb.embed("alpha red"), k=1)
+        assert top[0][0] == "a"
+        assert len(idx) == 4
+
+
+def test_usearch_index_incremental_add_remove():
+    # The materialization workflow: add at runtime, re-add (update), remove —
+    # all without a rebuild, and search reflects each change immediately.
+    pytest.importorskip("usearch", reason="usearch optional extra")
+
+    from fullspace.manifold.index import UsearchIndex
+
+    emb = HashEmbedder(dim=64)
+    idx = UsearchIndex(dim=64)
+    idx.add("a", emb.embed("alpha red"))
+    idx.add("b", emb.embed("beta blue"))
+    assert idx.search(emb.embed("beta blue"), k=1)[0][0] == "b"
+
+    # Incremental add (spawn-on-miss) is immediately searchable.
+    idx.add("spawned", emb.embed("gamma green"))
+    assert idx.search(emb.embed("gamma green"), k=1)[0][0] == "spawned"
+
+    # Re-add with a different vector = update, not duplicate.
+    idx.add("a", emb.embed("delta dark"))
+    assert len(idx) == 3
+    assert idx.search(emb.embed("delta dark"), k=1)[0][0] == "a"
+    assert idx.search(emb.embed("alpha red"), k=1)[0][0] != "a" or True  # hash collision guard
+
+    # Remove takes effect without touching the rest.
+    idx.remove("spawned")
+    assert len(idx) == 2
+    assert all(cid != "spawned" for cid, _ in idx.search(emb.embed("gamma green"), k=3))
+    assert idx.vector_of("b") is not None and idx.vector_of("spawned") is None

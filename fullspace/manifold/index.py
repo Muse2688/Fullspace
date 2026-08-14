@@ -1,13 +1,15 @@
 """Approximate/exact nearest-neighbour index over capability vectors.
 
 ``NumpyAnnIndex`` is the exact brute-force reference implementation (fine for
-small N, no native deps). At scale, drop in a ``FaissIndex`` (optional) with
-the same interface.
+small N, no native deps). At scale, drop in a ``UsearchIndex`` (incremental
+add/remove — pairs well with spawn-on-miss materialization) or a ``FaissIndex``
+(static-batch workloads), both optional with the same interface.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 import numpy as np
 
@@ -88,7 +90,89 @@ class NumpyAnnIndex(AnnIndex):
 
     def vector_of(self, id: str) -> np.ndarray | None:
         v = self._store.get(id)
-        return None if v is None else v
+        return None if v is None else v.copy()
+
+    def __len__(self) -> int:
+        return len(self._store)
+
+
+class UsearchIndex(AnnIndex):  # pragma: no cover - needs optional usearch
+    """Incremental ANN index backed by USearch (optional).
+
+    Unlike ``FaissIndex`` — which rebuilds and retrains the whole index after
+    any mutation — USearch supports true incremental ``add``/``remove`` with
+    O(log N)-ish HNSW-style search. This is the index to pair with
+    spawn-on-miss materialization, where capabilities appear at runtime.
+    Install with ``pip install fullspace[ann-usearch]``.
+
+    Args:
+        dim: vector dimensionality (must match the embedder).
+        connectivity: HNSW graph degree (higher = more recall, more memory).
+        expansion_add: candidate-list size when inserting.
+        expansion_search: candidate-list size when searching.
+    """
+
+    def __init__(self, dim: int, connectivity: int = 16, expansion_add: int = 128,
+                 expansion_search: int = 64):
+        from typing import cast
+
+        from usearch.index import Index, MetricKind  # type: ignore
+
+        self.dim = dim
+        self._store: dict[str, np.ndarray] = {}
+        self._key_of: dict[str, int] = {}
+        self._id_of: dict[int, str] = {}
+        self._next_key: int = 1
+        self._index = Index(
+            ndim=dim,
+            metric=MetricKind.Cos,
+            dtype=np.float32,  # type: ignore[arg-type]  # DTypeLike at runtime
+            connectivity=connectivity,
+            expansion_add=expansion_add,
+            expansion_search=expansion_search,
+        )
+        # USearch's Matches/BatchMatches union is awkward to iterate type-safely;
+        # narrow once here instead of sprinkling ignores through search().
+        self._search = cast("Any", self._index.search)
+
+    def _key(self, id: str) -> int:
+        if id not in self._key_of:
+            self._key_of[id] = self._next_key
+            self._id_of[self._next_key] = id
+            self._next_key += 1
+        return self._key_of[id]
+
+    def add(self, id: str, vector: np.ndarray) -> None:
+        v = np.asarray(vector, dtype=np.float32)
+        if v.shape != (self.dim,):
+            raise ValueError(f"vector shape {v.shape} != index dim ({self.dim},)")
+        self._store[id] = v
+        key = self._key(id)
+        if key in self._index:  # re-add with an existing key = replace
+            self._index.remove(key)
+        self._index.add(key, v)
+
+    def remove(self, id: str) -> None:
+        if id in self._key_of:
+            self._index.remove(self._key_of[id])
+            del self._id_of[self._key_of.pop(id)]
+        self._store.pop(id, None)
+
+    def search(self, query: np.ndarray, k: int = 5) -> list[tuple[str, float]]:
+        if not self._store:
+            return []
+        q = np.asarray(query, dtype=np.float32)
+        matches = self._search(q, min(k, len(self._store)))
+        # USearch "Cos" metric returns distances (1 - cosine); flip to scores.
+        return [
+            (self._id_of[int(m.key)], 1.0 - float(m.distance))
+            for m in matches
+            if int(m.key) in self._id_of
+        ]
+
+    def vector_of(self, id: str) -> np.ndarray | None:
+        v = self._store.get(id)
+        return None if v is None else v.copy()
 
     def __len__(self) -> int:
         return len(self._store)

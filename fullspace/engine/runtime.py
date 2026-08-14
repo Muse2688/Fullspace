@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, AsyncIterator, Iterator, Optional
 
@@ -451,7 +452,9 @@ class Engine:
             return
         parent = self.checkpointer.get(thread_id)
         cp = Checkpoint(
-            checkpoint_id=f"{thread_id}:{step:04d}",
+            # Unique per write: re-running a thread appends to the timeline
+            # instead of overwriting earlier checkpoints (time-travel safe).
+            checkpoint_id=f"{thread_id}:{step:04d}:{uuid.uuid4().hex[:8]}",
             thread_id=thread_id,
             step=step,
             state=dict(state),

@@ -95,10 +95,25 @@ def test_time_travel_get_checkpoint():
     eng = _three_step_engine(checkpointer=cp)
     eng.run("alpha step", thread_id="t1")
 
-    step1 = eng.get_checkpoint("t1", "t1:0001")
+    step1 = eng.get_checkpoint("t1", eng.history("t1")[0].checkpoint_id)
     assert step1.step == 1 and step1.trajectory == ["a"]
     latest = eng.get_checkpoint("t1")
     assert latest.step == 3 and latest.terminated_by == "sink"
+
+
+def test_rerun_appends_not_overwrites_timeline():
+    # A re-run of the same thread must not clobber earlier checkpoints:
+    # checkpoint ids are unique per write, so the timeline only grows.
+    cp = InMemoryCheckpointer()
+    eng = _three_step_engine(checkpointer=cp, max_steps=1)
+    eng.run("alpha step", thread_id="t1", max_steps=1)
+    eng.run("alpha step", thread_id="t1", max_steps=1)
+    hist = eng.history("t1")
+    # One termination checkpoint per run — and the second run appended instead
+    # of replacing the first (ids are unique per write).
+    assert len(hist) == 2
+    assert len({c.checkpoint_id for c in hist}) == 2
+    assert hist[1].parent_id == hist[0].checkpoint_id
 
 
 # -- sqlite persistence -----------------------------------------------------

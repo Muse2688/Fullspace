@@ -53,14 +53,23 @@ python demos/k12-education/report/generate_report.py # → report.html（浏览�
 
 ## 关键发现（实测）
 
+> 数字为本机单次运行实测（绝对值随机器浮动，相对结论稳定）。所有指标均由
+> `tests/run_all.py` 程序化测量，无手填数字。
+
 | 指标 | LangGraph | Fullspace（纯 intent） | Fullspace-Hybrid |
 |---|---|---|---|
-| 功能正确性 | 三版 100% 一致 | 三版 100% 一致 | 三版 100% 一致 |
+| 功能正确性 | 三版 100% 一致（n=200） | 同左 | 同左 |
 | 路由开销·回环场景 | 4 次条件边 | 9 次 ANN | **4 次 ANN（追平 LG）** |
-| 延迟中位（普适 200） | 2.30 ms | 0.36 ms | **0.15 ms（最快）** |
-| 运行时可加 agent | 需重新编译 | 可以 | 可以 |
+| 延迟中位（普适 200） | ~2 ms | 0.36 ms | **0.15 ms（最快）** |
+| 变更成本（加第 9 个 agent） | **实测 +10 行源码 + 重新 compile**（扩展图已真实构建跑通） | 运行时 2 行 | 运行时 2 行 |
+| OOD（异常输入） | 3/4 通过 | 3/4 通过（garbage_input 双方同样 TypeError） | 3/4 通过 |
 
 **结论**：混合路由让 Fullspace 在路由开销上追平 LangGraph，延迟反而最低，且仍保留运行时扩展能力。证明 Fullspace 的「路由次数多」是默认策略选择、不是本质劣势。
+
+**口径说明（诚实声明）**：
+- 变更成本用 `inspect` 对「原 build 函数 vs 扩展 build 函数」源码行数做机械对比（LG +10 行），FS 侧为运行时 `register`+`bind` 2 行——不是手填估计。
+- scaling 曲线中 LG 的路由延迟用真实 `shared/routing.after_grade` + N 路分支映射批量实测（O(1)，约 0.00007 ms/次，与 N 无关）；FS 为 numpy 暴力 ANN（O(N)）。
+- Hybrid 的延迟与缓存计数来自**同一次运行**（HybridRouter 常驻，不是计时轮卸掉缓存另测）。
 
 ## 报告包含
 

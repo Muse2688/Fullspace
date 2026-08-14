@@ -111,8 +111,12 @@ result = agent.run("search the web for information")
 print(result.trajectory)   # ['search', 'summarize', 'end']
 ```
 
-将 `HashEmbedder` 换成 `SentenceTransformersEmbedder` 或 `OpenAIEmbedder`，把纯函数
-handler 换成 LLM 驱动的，即可从"可运行机制"走向"生产级语义"。
+将 `HashEmbedder` 换成 `Model2VecEmbedder`（轻量静态语义，约 30 MB，无 torch）、
+`SentenceTransformersEmbedder` 或 `OpenAIEmbedder`，把纯函数 handler 换成 LLM 驱动的，
+即可从"可运行机制"走向"生产级语义"。
+
+> **换嵌入器的调参提示：** 不同嵌入器的余弦分数分布不同（哈希嵌入偏低且分散，
+> 语义嵌入普遍偏高）。切换后请为你的流形重新调 `Router(threshold=..., margin=...)`。
 
 ## 基准测试（对照真实 LangGraph）
 

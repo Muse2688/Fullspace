@@ -56,3 +56,7 @@ desktop.ini
 # --- OS / misc ---
 *.log
 .cache/
+
+# demo 生成物（运行后重新生成，不入库）
+demos/**/metrics.json
+demos/**/report.html
