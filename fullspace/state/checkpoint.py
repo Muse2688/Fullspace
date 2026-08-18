@@ -15,7 +15,7 @@ import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 
 @dataclass
@@ -159,3 +159,122 @@ class SqliteCheckpointer(Checkpointer):
     def close(self) -> None:
         with self._lock:
             self._conn.close()
+
+
+class MySqlCheckpointer(Checkpointer):
+    """MySQL-backed checkpointer (optional; needs ``PyMySQL`` + a server).
+
+    Same schema and semantics as ``SqliteCheckpointer`` (state values must be
+    JSON-able), in MySQL dialect (``REPLACE INTO``, ``%s`` params). A single
+    connection is serialized through a lock; for high-concurrency deployments
+    inject a pooled ``conn`` and keep one checkpointer per worker.
+
+    Args:
+        host / port / user / password / database: server coordinates.
+        table: table name (created if missing).
+        conn: an existing DB-API connection (overrides the coordinates);
+            must expose ``cursor()`` whose cursors yield tuple rows.
+    """
+
+    _COLS = ("thread_id, checkpoint_id, step, state, trajectory,"
+             " step_groups, parent_id, terminated_by")
+
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 3306,
+        user: str = "root",
+        password: str = "",
+        database: str = "fullspace",
+        table: str = "checkpoints",
+        conn: Any = None,
+    ):
+        if conn is None:
+            try:
+                import pymysql
+            except ImportError as e:  # pragma: no cover
+                raise ImportError(
+                    "MySqlCheckpointer needs PyMySQL: pip install fullspace[cp-mysql]"
+                ) from e
+            conn = pymysql.connect(
+                host=host, port=port, user=user, password=password, database=database,
+            )
+        self._conn = conn
+        self._table = table
+        self._lock = threading.Lock()
+        with self._lock:
+            cur = self._conn.cursor()
+            cur.execute(f"""
+                CREATE TABLE IF NOT EXISTS `{table}` (
+                    thread_id      VARCHAR(255) NOT NULL,
+                    checkpoint_id  VARCHAR(64)  NOT NULL,
+                    step           INT NOT NULL,
+                    state          JSON NOT NULL,
+                    trajectory     JSON NOT NULL,
+                    step_groups    JSON NOT NULL,
+                    parent_id      VARCHAR(64),
+                    terminated_by  VARCHAR(32),
+                    PRIMARY KEY (thread_id, checkpoint_id)
+                )
+            """)
+            self._conn.commit()
+            cur.close()
+
+    def put(self, cp: Checkpoint) -> None:
+        with self._lock:
+            cur = self._conn.cursor()
+            cur.execute(
+                f"REPLACE INTO `{self._table}` ({self._COLS})"
+                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (
+                    cp.thread_id, cp.checkpoint_id, cp.step,
+                    json.dumps(cp.state), json.dumps(cp.trajectory),
+                    json.dumps(cp.step_groups), cp.parent_id, cp.terminated_by,
+                ),
+            )
+            self._conn.commit()
+            cur.close()
+
+    def _select(self, sql: str, params: tuple):
+        with self._lock:
+            cur = self._conn.cursor()
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+            cur.close()
+        return rows
+
+    def get(self, thread_id: str, checkpoint_id: Optional[str] = None) -> Optional[Checkpoint]:
+        if checkpoint_id is not None:
+            rows = self._select(
+                f"SELECT {self._COLS} FROM `{self._table}`"
+                " WHERE thread_id=%s AND checkpoint_id=%s",
+                (thread_id, checkpoint_id),
+            )
+        else:
+            rows = self._select(
+                f"SELECT {self._COLS} FROM `{self._table}`"
+                " WHERE thread_id=%s ORDER BY step DESC, checkpoint_id DESC LIMIT 1",
+                (thread_id,),
+            )
+        return self._row_to_cp(rows[0]) if rows else None
+
+    def list(self, thread_id: str) -> list[Checkpoint]:
+        rows = self._select(
+            f"SELECT {self._COLS} FROM `{self._table}`"
+            " WHERE thread_id=%s ORDER BY step ASC, checkpoint_id ASC",
+            (thread_id,),
+        )
+        return [self._row_to_cp(r) for r in rows]
+
+    def close(self) -> None:
+        with self._lock:
+            self._conn.close()
+
+    def _row_to_cp(self, row) -> Checkpoint:
+        # SELECT column order == _COLS order (tuple rows, DB-API default).
+        return Checkpoint(
+            checkpoint_id=row[1], thread_id=row[0], step=row[2],
+            state=json.loads(row[3]), trajectory=json.loads(row[4]),
+            step_groups=json.loads(row[5]), parent_id=row[6],
+            terminated_by=row[7],
+        )

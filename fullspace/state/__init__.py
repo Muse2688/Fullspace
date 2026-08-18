@@ -11,6 +11,7 @@ from fullspace.state.checkpoint import (
     Checkpoint,
     Checkpointer,
     InMemoryCheckpointer,
+    MySqlCheckpointer,
     SqliteCheckpointer,
 )
 from fullspace.state.trajectory import annotate_positions
@@ -25,5 +26,6 @@ __all__ = [
     "Checkpointer",
     "InMemoryCheckpointer",
     "SqliteCheckpointer",
+    "MySqlCheckpointer",
     "annotate_positions",
 ]

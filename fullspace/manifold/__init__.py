@@ -12,7 +12,9 @@ a helpful ImportError only if you actually instantiate them without the extra:
 
     SentenceTransformersEmbedder / OpenAIEmbedder / Model2VecEmbedder
                                                     (embed-st / embed-openai / embed-m2v)
-    UsearchIndex / FaissIndex                        (ann-usearch / ann-faiss)
+    UsearchIndex / FaissIndex / MilvusIndex / Neo4jVectorIndex
+                                                    (ann-usearch / ann-faiss /
+                                                     ann-milvus / ann-neo4j)
     UMAPProjector                                    (proj-umap)
 """
 
@@ -46,6 +48,8 @@ __all__ = [
     "Model2VecEmbedder",
     "UsearchIndex",
     "FaissIndex",
+    "MilvusIndex",
+    "Neo4jVectorIndex",
     "UMAPProjector",
 ]
 
@@ -55,6 +59,8 @@ _LAZY_OPTIONAL: dict[str, str] = {
     "Model2VecEmbedder": "fullspace.manifold.embedding",
     "UsearchIndex": "fullspace.manifold.index",
     "FaissIndex": "fullspace.manifold.index",
+    "MilvusIndex": "fullspace.manifold.index",
+    "Neo4jVectorIndex": "fullspace.manifold.index",
     "UMAPProjector": "fullspace.manifold.projection",
 }
 

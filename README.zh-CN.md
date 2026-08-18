@@ -74,6 +74,9 @@ Fullspace 用**能力空间路由**取代连线。每个能力是高维语义流
 # 核心（零重依赖）
 pip install fullspace
 pip install faiss-cpu          # + 规模化次线性 ANN
+# 其他可选后端：fullspace[ann-usearch] 增量 ANN（适配动态物化）、
+#   fullspace[ann-milvus] / fullspace[ann-neo4j] 服务端共享向量索引、
+#   fullspace[cp-mysql] MySQL 检查点；Postgres 经 fullspace[langgraph] + LangGraphCheckpointer
 ```
 
 需要 LangGraph 互操作/评测、测试、mypy 等 extras，或想改源码贡献代码，可克隆仓库做可编辑安装：

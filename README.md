@@ -85,6 +85,10 @@ ambiguous junctions, and can **materialize** a new capability on a near-miss. Se
 # core (zero heavy deps)
 pip install fullspace
 pip install faiss-cpu                       # + sublinear ANN at scale
+# other optional backends: fullspace[ann-usearch] incremental ANN (materialization),
+#   fullspace[ann-milvus] / fullspace[ann-neo4j] shared server-side vector index,
+#   fullspace[cp-mysql] MySQL checkpointer; Postgres via fullspace[langgraph] +
+#   LangGraphCheckpointer
 ```
 
 For extras (LangGraph interop/eval, tests, mypy), or to hack on the source, clone and install editable:

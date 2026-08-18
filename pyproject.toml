@@ -23,9 +23,14 @@ embed-st = ["sentence-transformers>=2.2"]
 embed-openai = ["openai>=1.0"]
 # Scale ANN beyond brute-force numpy
 # ann-usearch is incremental (add/remove without rebuild) — pair it with
-# spawn-on-miss materialization; ann-faiss suits static batch workloads.
+# spawn-on-miss materialization; ann-faiss suits static batch workloads;
+# ann-milvus/ann-neo4j serve a shared, persistent collection from a server.
 ann-usearch = ["usearch>=2.0"]
 ann-faiss = ["faiss-cpu>=1.7"]
+ann-milvus = ["pymilvus>=2.4"]
+ann-neo4j = ["neo4j>=5.20"]
+# Production checkpointing backends
+cp-mysql = ["PyMySQL>=1.1"]
 # Non-linear 3D projection (PCAProjector is the zero-dep fallback)
 proj-umap = ["umap-learn>=0.5"]
 # Bidirectional interop with the LangChain/LangGraph ecosystem
