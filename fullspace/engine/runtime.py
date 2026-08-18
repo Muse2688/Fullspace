@@ -478,8 +478,9 @@ class Engine:
             return hits
         if self.router.materializer is not None:
             cap = self.router.materializer("materialized:field", 0.0)
-            self.manifold.register(cap)
-            return [Hit(cap, 1.0)]
+            if cap is not None:  # a declined spawn falls through to no_route
+                self.manifold.register(cap)
+                return [Hit(cap, 1.0)]
         return None
 
     def _combine_intents(self, intents: list[tuple[Any, float]]) -> np.ndarray:

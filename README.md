@@ -40,7 +40,7 @@ projection**, exactly because a graph has no inherent dimension.
 | | Feature | What it means |
 |---|---|---|
 | 🧭 | **Capability-space routing** | Soft routing by semantic proximity — no enumerated node names. |
-| ✨ | **Dynamic materialization** | Spawn a capability on demand when nothing matches (emergent topology). |
+| ✨ | **Dynamic materialization** | Spawn a capability on demand when nothing matches (emergent topology); three-tier routing + `UsageTracker` keep near-duplicates out and bound growth (top-K by rolling-window usage). |
 | 🌊 | **Multi-modal execution** | Discrete (graph-equivalent), field diffusion, and wavefront flow policies. |
 | ⚡ | **Barrier-free parallelism** | Activate a neighbourhood per step — no superstep synchronization barrier. |
 | 🛡️ | **Graceful OOD degradation** | Always routes to the nearest capability; no explicit fallback wiring required. |

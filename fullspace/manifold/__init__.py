@@ -26,6 +26,7 @@ from fullspace.manifold.index import AnnIndex, NumpyAnnIndex
 from fullspace.manifold.manifold import Manifold
 from fullspace.manifold.projection import PCAProjector, Projector
 from fullspace.manifold.types import Capability, Hit
+from fullspace.manifold.usage import UsageTracker
 
 __all__ = [
     "Capability",
@@ -42,6 +43,7 @@ __all__ = [
     "Projector",
     "PCAProjector",
     "Manifold",
+    "UsageTracker",
     # lazily re-exported (need optional extras at instantiation time)
     "SentenceTransformersEmbedder",
     "OpenAIEmbedder",

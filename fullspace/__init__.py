@@ -19,6 +19,7 @@ from fullspace.manifold import (
     NumpyAnnIndex,
     PCAProjector,
     Projector,
+    UsageTracker,
 )
 
 __version__ = "0.1.0"
@@ -34,5 +35,6 @@ __all__ = [
     "NumpyAnnIndex",
     "PCAProjector",
     "Projector",
+    "UsageTracker",
     "__version__",
 ]
