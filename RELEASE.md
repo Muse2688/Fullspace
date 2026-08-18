@@ -1,82 +1,85 @@
 # Releasing Fullspace to PyPI
 
-Fullspace is publish-ready: it builds to a clean wheel + sdist (`twine check`
-passes) and the wheel installs and runs in a fresh venv. This is the release
-runbook.
+Releases are fully automated: pushing a version tag triggers
+[`.github/workflows/release.yml`](.github/workflows/release.yml), which runs
+tests → builds sdist + wheel → publishes to PyPI via **Trusted Publishing
+(OIDC)** — no API token is stored anywhere.
+
+```
+git tag v0.2.0 && git push origin v0.2.0
+        │
+        ▼
+┌─────────────────────────────────────────────────────────┐
+│ test   pytest + mypy + tag↔version consistency check    │
+│   └▶ build   python -m build  (sdist + wheel)           │
+│         └▶ publish   PyPI via Trusted Publishing        │
+│                (environment: pypi, OIDC)                │
+└─────────────────────────────────────────────────────────┘
+```
 
 ## 0. Prerequisites (one-time)
 
-- A **PyPI** account: <https://pypi.org/account/register/>
-- An **API token**: Account settings → API tokens → Add token
-  (scope: *Entire account*, or scoped to the `fullspace` project after first
-  upload). Copy it — it starts with `pypi-`.
-- Build tools: `pip install -U build twine`
+1. **PyPI Trusted Publisher** — open
+   <https://pypi.org/manage/project/fullspace/publishing/> → *Add a pending
+   publisher* → GitHub, and fill in:
+   - Owner: `Muse2688` · Repository: `Fullspace`
+   - Workflow name: `release.yml`
+   - Environment: **`pypi`** ← must match the workflow's `environment:` exactly,
+     or the OIDC claim check fails.
+2. **GitHub environment** — repo *Settings → Environments* → create `pypi`
+   (optional but recommended: add required reviewers there to gate publishes).
+3. The workflow file must exist on the **default branch** (it does).
 
-> PyPI names are **permanent**: once `fullspace` is published, the name can't be
-> reused even after deletion. `0.1.0` as a first publish is fine.
-
-## 1. Pre-flight (automated checks)
+## 1. Every release (three steps)
 
 ```bash
-python -m pytest tests/ -q        # all tests green
-python -m mypy fullspace          # 0 errors
-rm -rf dist build fullspace.egg-info
-python -m build                   # -> dist/fullspace-<ver>-py3-none-any.whl + .tar.gz
-python -m twine check dist/*      # metadata + README render OK (must pass)
+# ① Bump the version — the single source of truth is fullspace/__init__.py:
+#      __version__ = "0.2.0"
+#    (pyproject.toml reads it dynamically; do NOT edit a version there.)
+
+# ② Commit and push to master
+git add -A && git commit -m "-release 0.2.0" && git push origin master
+
+# ③ Push the tag — this is the publish button
+git tag v0.2.0 && git push origin v0.2.0
 ```
 
-## 2. (Optional) Dry-run on TestPyPI
+The pipeline refuses to publish if the tag does not match the package version
+(the `Verify tag matches pyproject version` step), so a mistagged push fails
+fast instead of shipping a wrong version to PyPI (uploads are irreversible —
+a version number can never be re-uploaded).
+
+Version-numbering guide: bug fixes `0.1.0 → 0.1.1`; new backwards-compatible
+features `0.1.0 → 0.2.0`; breaking API changes bump the major.
+
+## 2. Optional dry-run on TestPyPI
+
+Before a first release (or after touching the pipeline), rehearse by pointing
+`gh-action-pypi-publish` at TestPyPI: temporarily add
+`with: { repository-url: https://test.pypi.org/legacy/ }` to the publish step,
+push a throwaway tag (e.g. `v0.0.0-rc1`), verify
+`pip install -i https://test.pypi.org/simple/ fullspace`, then revert.
+
+## 3. Manual fallback (no CI)
 
 ```bash
-python -m twine upload --repository testpypi dist/*
-# then verify it installs:
-pip install -i https://test.pypi.org/simple/ fullspace
-```
-
-## 3. Publish to PyPI
-
-Two paths — automated (recommended) or manual.
-
-### 3a. Automated via GitHub Actions (Trusted Publishing, no token stored)
-
-`release.yml` already builds, checks, and publishes on a version-tag push. One-time
-PyPI setup:
-
-1. Open <https://pypi.org/manage/project/fullspace/publishing/> → **Add a publisher** → GitHub.
-2. Fill: Owner `Muse2688`, Repository `Fullspace`, Workflow `release.yml`,
-   Environment *(leave blank)*. Add.
-3. Commit `release.yml` to the **default branch** and push it (the workflow file must
-   exist on the default branch for tag pushes to trigger it).
-
-Then every release is one tag:
-
-```bash
-# bump version in pyproject.toml first, then commit
-git tag v0.1.1
-git push origin v0.1.1          # CI: test -> build -> publish to PyPI
-```
-
-### 3b. Manual (first publish / fallback)
-
-```bash
-python -m twine upload dist/*
-# username: __token__
-# password: <paste the pypi- token>
+pip install -U build twine
+python -m build && python -m twine check dist/*
+python -m twine upload dist/*     # username: __token__, password: pypi-…
 ```
 
 ## 4. After publishing
 
-- Tag the release: `git tag v0.1.0 && git push --tags`.
-- Fill in the GitHub Release (the PyPI link auto-appears once the project URL is
-  set in `pyproject.toml`, which it is).
-- Bump `version` in `pyproject.toml` for the next dev cycle.
+- Create the **GitHub Release** from the tag (the PyPI link auto-appears —
+  the project URL is set in `pyproject.toml`).
+- Watch the Actions run: <https://github.com/Muse2688/Fullspace/actions/workflows/release.yml>
+- The version on PyPI: <https://pypi.org/project/fullspace/>
 
 ## Notes
 
-- Only `numpy` is a hard runtime dependency; everything else (FAISS,
-  sentence-transformers, UMAP, LangGraph) is an optional extra — so
-  `pip install fullspace` stays lightweight.
-- The wheel contains only the importable package + metadata; the sdist (via
-  `MANIFEST.in`) also bundles the bilingual READMEs, CONTRIBUTING, docs, and CI.
-- `dist/`, `build/`, and `*.egg-info` are gitignored — build artifacts are never
-  committed.
+- `python -m pip install fullspace` stays lightweight: only `numpy` is a hard
+  runtime dependency; FAISS/USearch/Milvus/Neo4j/sentence-transformers/LangGraph/
+  PyMySQL are all optional extras.
+- `dist/`, `build/`, `*.egg-info` are gitignored — build artifacts are never
+  committed; CI builds them fresh from the tag.
+- Version history is one place: `git tag -l` mirrors what is on PyPI.
